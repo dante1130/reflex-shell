@@ -7,14 +7,13 @@
 #include "token.h"
 #include "command.h"
 
-void printCommand(Command c, char *tokens[]);
+void printCommand(Command c);
 void runCommand(Command *c);
 
 int main() {
 	char *tokens[100];
 	char inputLine[100] = "Hello there everyone one\0";
 	int length = 0;
-	int size = 0;
 	pid_t pid;
 
 	Command commands[100];
@@ -22,7 +21,12 @@ int main() {
 
 	while (1) {
 		printf("$ ");
-		fgets(inputLine, 100, stdin);
+		char *buff = fgets(inputLine, 100, stdin);
+		if(buff == NULL) {
+			perror("Fgets failed");
+			break;
+		}
+		
 		length = strlen(inputLine) - 1;
 		if (inputLine[length] == '\n') {
 			inputLine[length] = '\0';
@@ -32,7 +36,7 @@ int main() {
 			break;
 		}
 
-		size = tokenise(&inputLine[0], tokens);
+		tokenise(&inputLine[0], tokens);
 		nCommands = separateCommands(tokens, &commands[0]);
 		for (int count = 0; count < nCommands; count++) {
 			pid = fork();
@@ -56,16 +60,13 @@ void runCommand(Command *c) {
 	exit(0);
 }
 
-void printCommand(Command c, char *tokens[]) {
+void printCommand(Command c) {
 	printf("Command: ");
 	int index = 0;
 	while (c.argv[index] != NULL) {
 		printf("%s ", c.argv[index]);
 		++index;
 	}
-	// for(index; index < c.last; ++index) {
-	//	printf("%s ", tokens[index]);
-	//}
 
 	if (c.stdin_file != NULL) {
 		printf("\tInputfile = %s", c.stdin_file);
