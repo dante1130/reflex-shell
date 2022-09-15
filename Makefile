@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O3
 
-TARGET_EXEC := command
+TARGET_EXEC := reflex
 
 BUILD_DIR := ./build
 
