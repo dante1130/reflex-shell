@@ -1,93 +1,123 @@
 #include "command.h"
-
-#include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-bool is_separator(const char* token) {
-	const size_t SEPARATOR_TYPE_SIZE = 3;
-	const char* const SEPARATOR_TYPES[] = {"|", "&", ";"};
+int separator(char *token)
+{
+ int i = 0;
+ char *commandSeparators[] = {pipeSep, conSep, seqSep, NULL};
 
-	for (size_t i = 0; i < SEPARATOR_TYPE_SIZE; ++i) {
-		if (strcmp(token, SEPARATOR_TYPES[i]) == 0) {
-			return true;
-		}
+ while(commandSeparators[i] != NULL) {
+	if(strcmp(commandSeparators[i], token) == 0) {
+		return 1;
 	}
+	++i;
+ }
 
-	return false;
+ return 0;
 }
 
-int tokenise_commands(Command* commands, const char** tokens,
-                      size_t token_size) {
-	if (tokens == NULL || token_size == 0) {
-		return 0;
-	}
-
-	// If the first token is a separator.
-	if (is_separator(tokens[0])) {
-		return -1;
-	}
-
-	int command_size = 0;
-
-	size_t index_begin = 0;
-
-	// Does not include the last token.
-	for (size_t index_end = 0; index_end < token_size - 1; ++index_end) {
-		if (is_separator(tokens[index_end])) {
-			// If the current and previous tokens are both separators.
-			if (strcmp(tokens[index_begin], tokens[index_end]) == 0) {
-				return -2;
-			}
-
-			commands[command_size].index_begin = index_begin;
-			commands[command_size].index_end = index_end;
-			commands[command_size].separator = tokens[index_end];
-			++command_size;
-
-			index_begin = index_end + 1;
-		}
-	}
-
-	// If the last token is a pipe separator.
-	if (strcmp(tokens[token_size - 1], "|") == 0) {
-		return -3;
-	}
-
-	// The last command.
-	commands[command_size].index_begin = index_begin;
-	commands[command_size].index_end = token_size;
-	commands[command_size].separator = ";";
-	++command_size;
-
-	for (int i = 0; i < command_size; ++i) {
-		search_redirection(&commands[i], tokens);
-		build_argv(&commands[i], tokens);
-	}
-
-	return command_size;
+void initCommandStructure(Command *cp) {
+ cp->first = 0;
+ cp->last = 0;
+ cp->sep = NULL;
+ cp->argv = NULL;
+ cp->stdin_file = NULL;
+ cp->stdout_file = NULL;
 }
 
-void search_redirection(Command* command, const char** tokens) {
-	command->stdin_file = NULL;
-	command->stdout_file = NULL;
 
-	for (size_t i = command->index_begin; i < command->index_end; ++i) {
-		if (strcmp(tokens[i], "<") == 0) {
-			command->stdin_file = tokens[++i];
-		} else if (strcmp(tokens[i], ">") == 0) {
-			command->stdout_file = tokens[++i];
-		}
-	}
+void fillCommandStructure(Command *cp, int first, int last, char *sep) {
+ cp->first = first;
+ cp->last = last;
+ cp->sep = sep;
 }
 
-void build_argv(Command* command, const char** tokens) {
-	const size_t argv_size = command->index_end - command->index_begin;
-
-	command->argv = malloc(sizeof(char*) * argv_size);
-	assert(command->argv != NULL && "Failed to allocate memory for argv.");
-
-	for (size_t i = 0; i < argv_size; ++i) {
-		command->argv[i] = tokens[command->index_begin];
+void searchRedirection(char *token[], Command *command) {
+ for(int count = command->first; count < command->last; ++count) {
+	if(strcmp(token[count], "<") == 0) {
+		++count;
+		command->stdin_file = token[count];
+	} else if (strcmp(token[count], ">") == 0) {
+		++count;
+		command->stdout_file = token[count];
 	}
+ }
+}
+
+void buildCommandArgumentArray(char *token[], Command *cp) {
+ int max_size = cp->last - cp->first + 2;
+ if(cp->stdin_file != NULL) { max_size += -2; }
+ if(cp->stdout_file != NULL) { max_size += -2; }
+
+ cp->argv = (char **)realloc(cp->argv, sizeof(char *) * max_size);
+ if(cp->argv == NULL) {
+	perror("realloc");
+	exit(1);
+ }
+
+ int k = 0;
+ for(int count = cp->first; count < cp->last; ++count) {
+	if((strcmp(token[count], ">") == 0) || (strcmp(token[count], "<") == 0)) {
+		++count;
+	} else {
+		cp->argv[k] = token[count];
+		++k;
+	}
+ }
+ cp->argv[k] = NULL;
+
+
+ return;
+}
+
+
+int separateCommands(char *token[], Command *command) {
+ //Basic set up
+ int i = 0;
+ int nTokens;
+
+ while(token[i] != NULL) { ++i; }
+ nTokens = i;
+
+ if(nTokens == 0) { return 0; }
+
+ if (separator(token[0])) { return -3; }
+
+
+ if(!separator(token[nTokens-1])) {
+	token[nTokens] = seqSep;
+	++nTokens;
+ }
+
+ //Determining commands
+ int first = 0;
+ int last;
+ char *sep;
+ int c = 0;
+ for(i = 0; i < nTokens; ++i) {
+	last = i;
+	if(separator(token[i])) {
+		sep = token[i];
+		if(first == last) { return -2; }
+		initCommandStructure(&(command[c]));
+		fillCommandStructure(&(command[c]), first, last, sep);
+		++c;
+		first = i+1;
+	}
+
+ }
+
+
+ if(strcmp(token[last], pipeSep) == 0) { return -4; }
+
+ int nCommands = c;
+ for(int count = 0; count < nCommands; ++count) {
+	searchRedirection(token, &(command[count]));
+	buildCommandArgumentArray(token, &(command[count]));
+ }
+
+
+ return nCommands;
 }
