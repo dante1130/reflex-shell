@@ -15,38 +15,39 @@ void runCommand(Command *c);
 int main() {
 	bool terminate = false;
 
-	char *tokens[100];
-	char input_line[100] = "Hello there everyone one\0";
-	pid_t pid;
-
-	Command commands[100];
-	int nCommands = 0;
-
 	do {
+		const size_t buffer_size = 256;
+		char input_line[buffer_size];
+
 		printf("> ");
 		if (fgets(input_line, 100, stdin) == NULL) {
 			continue;
 		}
 		remove_newline(input_line);
 
-		if (strcmp("exit", input_line) == 0) {
-			terminate = true;
-		}
+		if (strcmp("exit", input_line) != 0) {
+			const size_t max_tokens = 128;
+			char *tokens[max_tokens];
 
-		tokenise(&input_line[0], tokens);
-		nCommands = separateCommands(tokens, &commands[0]);
+			Command commands[max_tokens];
 
-		for (int count = 0; count < nCommands; count++) {
-			pid = fork();
-			if (pid == 0) {
-				runCommand(&commands[count]);
+			tokenise(&input_line[0], tokens);
+			const int command_size = separateCommands(tokens, &commands[0]);
+
+			for (int i = 0; i < command_size; ++i) {
+				pid_t pid = fork();
+				if (pid == 0) {
+					runCommand(&commands[i]);
+				}
+				// runCommand(&commands[count]);
+				// printCommand(commands[count], tokens);
 			}
-			// runCommand(&commands[count]);
-			// printCommand(commands[count], tokens);
-		}
 
-		for (int count = 0; count < nCommands; count++) {
-			wait((int *)0);
+			for (int i = 0; i < command_size; ++i) {
+				wait((int *)0);
+			}
+		} else {
+			terminate = true;
 		}
 	} while (!terminate);
 }
