@@ -1,27 +1,20 @@
-/*
- * File: token.c
- * Author: Daniel Rodic
- * Date: 14/08/2022
- */
-
-#include <stdio.h>
-#include <string.h>
-
 #include "token.h"
 
-int tokenise(char *inputLine, char *token[]) {
-	int num = 0;
+#include <stdlib.h>
+#include <string.h>
 
-	token[0] = strtok(inputLine, SEPERATOR);
-
-	while (token[num] != NULL) {
-		num++;
-		if (num == MAX_NUM_TOKENS) {
-			return -1;
-		}
-
-		token[num] = strtok(NULL, SEPERATOR);
+size_t tokenise(char** token, char* input_line, const char* delim) {
+	if (input_line == NULL || token == NULL || delim == NULL) {
+		return 0;
 	}
 
-	return num;
+	token[0] = strtok(input_line, delim);
+
+	size_t token_size = 1;
+
+	for (; token[token_size] != NULL; ++token_size) {
+		token[token_size] = strtok(NULL, delim);
+	}
+
+	return token_size;
 }
