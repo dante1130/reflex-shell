@@ -10,9 +10,9 @@ size_t tokenise(char** token, char* input_line, const char* delim) {
 
 	token[0] = strtok(input_line, delim);
 
-	size_t token_size = 1;
+	size_t token_size = 0;
 
-	for (; token[token_size] != NULL; ++token_size) {
+	while (token[token_size++] != NULL) {
 		token[token_size] = strtok(NULL, delim);
 	}
 
