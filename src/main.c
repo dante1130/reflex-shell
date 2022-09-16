@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include "string_utils.h"
 #include "token.h"
 #include "command.h"
 
@@ -11,33 +13,29 @@ void printCommand(Command c);
 void runCommand(Command *c);
 
 int main() {
+	bool terminate = false;
+
 	char *tokens[100];
-	char inputLine[100] = "Hello there everyone one\0";
-	int length = 0;
+	char input_line[100] = "Hello there everyone one\0";
 	pid_t pid;
 
 	Command commands[100];
 	int nCommands = 0;
 
-	while (1) {
-		printf("$ ");
-		char *buff = fgets(inputLine, 100, stdin);
-		if(buff == NULL) {
-			perror("Fgets failed");
-			break;
+	do {
+		printf("> ");
+		if (fgets(input_line, 100, stdin) == NULL) {
+			continue;
 		}
-		
-		length = strlen(inputLine) - 1;
-		if (inputLine[length] == '\n') {
-			inputLine[length] = '\0';
+		remove_newline(input_line);
+
+		if (strcmp("exit", input_line) == 0) {
+			terminate = true;
 		}
 
-		if (strcmp("exit", inputLine) == 0) {
-			break;
-		}
-
-		tokenise(&inputLine[0], tokens);
+		tokenise(&input_line[0], tokens);
 		nCommands = separateCommands(tokens, &commands[0]);
+
 		for (int count = 0; count < nCommands; count++) {
 			pid = fork();
 			if (pid == 0) {
@@ -50,9 +48,7 @@ int main() {
 		for (int count = 0; count < nCommands; count++) {
 			wait((int *)0);
 		}
-	}
-
-	return 0;
+	} while (!terminate);
 }
 
 void runCommand(Command *c) {
