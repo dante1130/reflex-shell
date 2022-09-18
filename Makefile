@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -O3
+CFLAGS = -Wall -Wextra -O3
 
 TARGET_EXEC := reflex
 
@@ -18,3 +18,7 @@ $(BUILD_DIR)/%.c.o: %.c
 
 clean:
 	rm -r $(BUILD_DIR)
+
+run:
+	make
+	./build/reflex

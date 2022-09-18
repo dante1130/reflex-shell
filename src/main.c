@@ -1,4 +1,3 @@
-#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -12,7 +11,7 @@
 #include "command.h"
 
 void sig_init();
-void catch_sig(int signo);
+void catch_sig();
 void print_command(Command c);
 void run_command(Command* c);
 
@@ -77,7 +76,7 @@ void sig_init() {
 
 }
 
-void catch_sig(int signo) { printf(" %d\n", signo); }
+void catch_sig() { printf(" \n"); }
 
 void run_command(Command* c) {
 	execvp(c->argv[0], c->argv);
