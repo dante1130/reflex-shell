@@ -10,7 +10,7 @@
 #include "command.h"
 
 void printCommand(Command c);
-void runCommand(Command *c);
+void runCommand(Command* c);
 
 int main() {
 	bool terminate = false;
@@ -27,7 +27,7 @@ int main() {
 
 		if (strcmp("exit", input_line) != 0) {
 			const size_t max_tokens = 128;
-			char *tokens[max_tokens];
+			char* tokens[max_tokens];
 
 			Command commands[max_tokens];
 
@@ -44,7 +44,7 @@ int main() {
 			}
 
 			for (int i = 0; i < command_size; ++i) {
-				wait((int *)0);
+				wait((int*)0);
 			}
 		} else {
 			terminate = true;
@@ -52,7 +52,7 @@ int main() {
 	} while (!terminate);
 }
 
-void runCommand(Command *c) {
+void runCommand(Command* c) {
 	execvp(c->argv[0], c->argv);
 	exit(0);
 }

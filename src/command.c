@@ -5,9 +5,15 @@
 #include <stdlib.h>
 #include <assert.h>
 
+static const size_t MAX_NUM_COMMANDS = 1000;
+
+static const char* const PIPE_SEP = "|";
+static const char* const CON_SEP = "&";
+static const char* const SEQ_SEP = ";";
+
 bool is_separator(const char* token) {
 	const size_t SEPARATOR_TYPE_SIZE = 3;
-	const char* const SEPARATOR_TYPES[] = {"|", "&", ";"};
+	const char* const SEPARATOR_TYPES[] = {PIPE_SEP, CON_SEP, SEQ_SEP};
 
 	for (size_t i = 0; i < SEPARATOR_TYPE_SIZE; ++i) {
 		if (strcmp(token, SEPARATOR_TYPES[i]) == 0) {
@@ -92,7 +98,7 @@ int tokenise_commands(char* token[], Command* command) {
 	}
 
 	if (!is_separator(token[nTokens - 1])) {
-		token[nTokens] = seqSep;
+		token[nTokens] = (char*)SEQ_SEP;
 		++nTokens;
 	}
 
@@ -115,7 +121,7 @@ int tokenise_commands(char* token[], Command* command) {
 		}
 	}
 
-	if (strcmp(token[last], pipeSep) == 0) {
+	if (strcmp(token[last], PIPE_SEP) == 0) {
 		return -4;
 	}
 

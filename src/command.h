@@ -4,12 +4,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define MAX_NUM_COMMANDS 1000
-
-#define pipeSep "|"
-#define conSep "&"
-#define seqSep ";"
-
 /**
  * @struct Command
  * @brief A command is a sequence of tokens separated by a separator. A command
