@@ -26,3 +26,7 @@ run:
 test:
 	make
 	./build/reflex < src/testing_input.txt
+
+test_whole_INVALID:
+	make
+	./build/reflex < src/Test-Cases.txt
