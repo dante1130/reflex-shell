@@ -11,17 +11,13 @@
 #include "token.h"
 #include "command.h"
 
-static void run_command(Command* c);
-static void sig_init();
-static void catch_sig();
+void init_shell(Shell* shell, int argc, char** argv, char** envp);
+void run_command(Command* c);
+void sig_init();
+void catch_sig();
 
-void init_shell(Shell* shell) {
-	shell->prompt = "> ";
-	shell->terminate = false;
-}
-
-void run_shell(Shell* shell) {
-	init_shell(shell);
+void run_shell(Shell* shell, int argc, char** argv, char** envp) {
+	init_shell(shell, argc, argv, envp);
 	sig_init();
 
 	do {
@@ -57,6 +53,14 @@ void run_shell(Shell* shell) {
 			shell->terminate = true;
 		}
 	} while (!shell->terminate);
+}
+
+void init_shell(Shell* shell, int argc, char** argv, char** envp) {
+	shell->prompt = "> ";
+	shell->terminate = false;
+	shell->argc = argc;
+	shell->argv = argv;
+	shell->envp = envp;
 }
 
 void run_command(Command* c) {

@@ -6,8 +6,11 @@
 typedef struct {
 	char* prompt;
 	bool terminate;
+	int argc;
+	char** argv;
+	char** envp;
 } Shell;
 
-void run_shell(Shell* shell);
+void run_shell(Shell* shell, int argc, char** argv, char** envp);
 
 #endif
