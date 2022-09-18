@@ -63,6 +63,8 @@ void claim_zombies() {
 		pid = waitpid(-1, &status, WNOHANG);
 		if(pid <= 0) {
 			more = false;
+		} else if(WEXITSTATUS(status)) {
+			printf("\n");
 		}
 	}
 }
@@ -97,7 +99,7 @@ void catch_sig(int signo) {
 
 void run_command(Command* c) {
 	execvp(c->argv[0], c->argv);
-	exit(0);
+	exit(1);
 }
 
 void print_command(Command c) {
