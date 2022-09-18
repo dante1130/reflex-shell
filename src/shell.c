@@ -17,7 +17,8 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
 void run_command(Command* c);
 void sig_init();
-void catch_sig();
+void catch_sig(int signo);
+void claim_zombies();
 
 void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_shell(shell, argc, argv, envp);
@@ -117,4 +118,23 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
-void catch_sig() { printf(" \n"); }
+void catch_sig(int signo) {
+	if(signo == SIGCHLD) {
+		claim_zombies();
+	} else {
+		printf("\n");
+	}
+}
+
+void claim_zombies() {
+	bool more = true;
+	pid_t pid;
+	int status;
+
+	while(more) {
+		pid = waitpid(-1, &status, WNOHANG);
+		if(pid <= 0) {
+			more = false;
+		}
+	}
+}
