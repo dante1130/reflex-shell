@@ -1,4 +1,5 @@
-ls -lt ;
+./show START OF TEST CASES
+ls -lt ; date & pwd
 date ;
 pwd ;
 
@@ -8,4 +9,5 @@ pwd ;
 
 make
 
+./show END OF TEST CASES
 exit
