@@ -8,8 +8,6 @@ typedef struct {
 	bool terminate;
 } Shell;
 
-void init_shell(Shell* shell);
-
 void run_shell(Shell* shell);
 
 #endif
