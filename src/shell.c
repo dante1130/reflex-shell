@@ -6,12 +6,14 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "string_utils.h"
 #include "token.h"
 #include "command.h"
 
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
+bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 void run_command(Command* c);
 void sig_init();
 void catch_sig();
@@ -22,21 +24,19 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 
 	do {
 		const size_t buffer_size = 256;
-		char input_line[buffer_size];
+		char input_buffer[buffer_size];
 
-		printf("%s", shell->prompt);
-		if (fgets(input_line, buffer_size, stdin) == NULL) {
+		if (!prompt_input(shell->prompt, input_buffer, buffer_size)) {
 			continue;
 		}
-		remove_newline(input_line);
 
-		if (strcmp("exit", input_line) != 0) {
+		if (strcmp("exit", input_buffer) != 0) {
 			const size_t max_tokens = 128;
 			char* tokens[max_tokens];
 
 			Command commands[max_tokens];
 
-			tokenise(tokens, input_line, " ");
+			tokenise(tokens, input_buffer, " ");
 			const int command_size = tokenise_commands(commands, tokens);
 
 			for (int i = 0; i < command_size; ++i) {
@@ -61,6 +61,26 @@ void init_shell(Shell* shell, int argc, char** argv, char** envp) {
 	shell->argc = argc;
 	shell->argv = argv;
 	shell->envp = envp;
+}
+
+bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
+	bool reprompt = false;
+
+	do {
+		reprompt = false;
+
+		printf("%s", prompt);
+		if (fgets(input_buffer, buffer_size, stdin) == NULL) {
+			if (errno == EINTR) {
+				reprompt = true;
+			} else {
+				return false;
+			}
+		}
+		remove_newline(input_buffer);
+	} while (reprompt);
+
+	return true;
 }
 
 void run_command(Command* c) {
