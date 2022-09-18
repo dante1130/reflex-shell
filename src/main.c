@@ -23,21 +23,23 @@ int main() {
 	//signal(SIGTSTP, SIG_IGN);
 	
 	
-	struct sigaction act_catch;
+	struct sigaction act_catch, act_ignore;
+	//Catch signals
 	act_catch.sa_flags = 0;
 	act_catch.sa_handler = catch_sig;
-
-	sigset_t sigs_catch;
-	sigemptyset(&sigs_catch);
-	sigaddset(&sigs_catch, SIGINT);
-	sigaddset(&sigs_catch, SIGQUIT);
-	sigaddset(&sigs_catch, SIGTSTP);
-
-	act_catch.sa_mask = sigs_catch;
+	sigemptyset(&act_catch.sa_mask);
 
 	sigaction(SIGINT, &act_catch, NULL);
 	sigaction(SIGQUIT, &act_catch, NULL);
 	sigaction(SIGTSTP, &act_catch, NULL);
+	
+	//Ignore signals
+	act_ignore.sa_flags = 0;
+	act_ignore.sa_handler = SIG_IGN;
+	sigemptyset(&act_ignore.sa_mask);
+	//sigaction(SIGALRM, &act_ignore, NULL);
+
+	
 
 	do {
 		const size_t buffer_size = 256;
