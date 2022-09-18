@@ -10,8 +10,9 @@
 #include "token.h"
 #include "command.h"
 
+void claim_zombies();
 void sig_init();
-void catch_sig();
+void catch_sig(int signo);
 void print_command(Command c);
 void run_command(Command* c);
 
@@ -47,14 +48,23 @@ int main() {
 				// run_command(&commands[count]);
 				// print_command(commands[count], tokens);
 			}
-
-			for (int i = 0; i < command_size; ++i) {
-				wait((int*)0);
-			}
 		} else {
 			terminate = true;
 		}
 	} while (!terminate);
+}
+
+void claim_zombies() {
+	bool more = true;
+	pid_t pid;
+	int status;
+
+	while(more) {
+		pid = waitpid(-1, &status, WNOHANG);
+		if(pid <= 0) {
+			more = false;
+		}
+	}
 }
 
 void sig_init() {
@@ -67,6 +77,7 @@ void sig_init() {
 	sigaction(SIGINT, &act_catch, NULL);
 	sigaction(SIGQUIT, &act_catch, NULL);
 	sigaction(SIGTSTP, &act_catch, NULL);
+	sigaction(SIGCHLD, &act_catch, NULL);
 	
 	//Ignore signals
 	act_ignore.sa_flags = 0;
@@ -76,7 +87,13 @@ void sig_init() {
 
 }
 
-void catch_sig() { printf(" \n"); }
+void catch_sig(int signo) {
+	if(signo == SIGCHLD) {
+		claim_zombies();
+	} else {
+		printf("\n");
+	}
+}
 
 void run_command(Command* c) {
 	execvp(c->argv[0], c->argv);
