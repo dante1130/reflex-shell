@@ -1,66 +1,63 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include "string_utils.h"
 #include "token.h"
 #include "command.h"
 
-void printCommand(Command c);
-void runCommand(Command *c);
+void print_command(Command c);
+void run_command(Command* c);
 
 int main() {
-	char *tokens[100];
-	char inputLine[100] = "Hello there everyone one\0";
-	int length = 0;
-	pid_t pid;
+	bool terminate = false;
 
-	Command commands[100];
-	int nCommands = 0;
+	do {
+		const size_t buffer_size = 256;
+		char input_line[buffer_size];
 
-	while (1) {
-		printf("$ ");
-		char *buff = fgets(inputLine, 100, stdin);
-		if(buff == NULL) {
-			perror("Fgets failed");
-			break;
+		printf("> ");
+		if (fgets(input_line, buffer_size, stdin) == NULL) {
+			continue;
 		}
-		
-		length = strlen(inputLine) - 1;
-		if (inputLine[length] == '\n') {
-			inputLine[length] = '\0';
-		}
+		remove_newline(input_line);
 
-		if (strcmp("exit", inputLine) == 0) {
-			break;
-		}
+		if (strcmp("exit", input_line) != 0) {
+			const size_t max_tokens = 128;
+			char* tokens[max_tokens];
 
-		tokenise(&inputLine[0], tokens);
-		nCommands = separateCommands(tokens, &commands[0]);
-		for (int count = 0; count < nCommands; count++) {
-			pid = fork();
-			if (pid == 0) {
-				runCommand(&commands[count]);
+			Command commands[max_tokens];
+
+			tokenise(tokens, input_line, " ");
+			const int command_size = tokenise_commands(commands, tokens);
+
+			for (int i = 0; i < command_size; ++i) {
+				pid_t pid = fork();
+				if (pid == 0) {
+					run_command(&commands[i]);
+				}
+				// run_command(&commands[count]);
+				// print_command(commands[count], tokens);
 			}
-			// runCommand(&commands[count]);
-			// printCommand(commands[count], tokens);
-		}
 
-		for (int count = 0; count < nCommands; count++) {
-			wait((int *)0);
+			for (int i = 0; i < command_size; ++i) {
+				wait((int*)0);
+			}
+		} else {
+			terminate = true;
 		}
-	}
-
-	return 0;
+	} while (!terminate);
 }
 
-void runCommand(Command *c) {
+void run_command(Command* c) {
 	execvp(c->argv[0], c->argv);
 	exit(0);
 }
 
-void printCommand(Command c) {
+void print_command(Command c) {
 	printf("Command: ");
 	int index = 0;
 	while (c.argv[index] != NULL) {
