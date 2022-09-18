@@ -1,80 +1,79 @@
 #include "command.h"
+
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
+#include <assert.h>
 
-int separator(char *token) {
-	int i = 0;
-	char *commandSeparators[] = {pipeSep, conSep, seqSep, NULL};
+bool is_separator(const char* token) {
+	const size_t SEPARATOR_TYPE_SIZE = 3;
+	const char* const SEPARATOR_TYPES[] = {"|", "&", ";"};
 
-	while (commandSeparators[i] != NULL) {
-		if (strcmp(commandSeparators[i], token) == 0) {
-			return 1;
+	for (size_t i = 0; i < SEPARATOR_TYPE_SIZE; ++i) {
+		if (strcmp(token, SEPARATOR_TYPES[i]) == 0) {
+			return true;
 		}
-		++i;
 	}
 
-	return 0;
+	return false;
 }
 
-void initCommandStructure(Command *cp) {
-	cp->first = 0;
-	cp->last = 0;
-	cp->sep = NULL;
+void init_command(Command* cp) {
+	cp->index_begin = 0;
+	cp->index_end = 0;
+	cp->separator = NULL;
 	cp->argv = NULL;
 	cp->stdin_file = NULL;
 	cp->stdout_file = NULL;
 }
 
-void fillCommandStructure(Command *cp, int first, int last, char *sep) {
-	cp->first = first;
-	cp->last = last;
-	cp->sep = sep;
+void fill_command(Command* cp, int first, int last, char* sep) {
+	cp->index_begin = first;
+	cp->index_end = last;
+	cp->separator = sep;
 }
 
-void searchRedirection(char *token[], Command *command) {
-	for (int count = command->first; count < command->last; ++count) {
-		if (strcmp(token[count], "<") == 0) {
-			++count;
-			command->stdin_file = token[count];
-		} else if (strcmp(token[count], ">") == 0) {
-			++count;
-			command->stdout_file = token[count];
+void search_redirection(Command* command, char** tokens) {
+	command->stdin_file = NULL;
+	command->stdout_file = NULL;
+
+	for (int i = command->index_begin; i < command->index_end; ++i) {
+		if (strcmp(tokens[i], "<") == 0) {
+			command->stdin_file = tokens[++i];
+		} else if (strcmp(tokens[i], ">") == 0) {
+			command->stdout_file = tokens[++i];
 		}
 	}
 }
 
-void buildCommandArgumentArray(char *token[], Command *cp) {
-	int max_size = cp->last - cp->first + 2;
-	if (cp->stdin_file != NULL) {
+void build_argv(Command* command, char** tokens) {
+	int max_size = command->index_end - command->index_begin + 2;
+	if (command->stdin_file != NULL) {
 		max_size += -2;
 	}
-	if (cp->stdout_file != NULL) {
+	if (command->stdout_file != NULL) {
 		max_size += -2;
 	}
 
-	cp->argv = (char **)realloc(cp->argv, sizeof(char *) * max_size);
-	if (cp->argv == NULL) {
+	command->argv = (char**)realloc(command->argv, sizeof(char*) * max_size);
+	if (command->argv == NULL) {
 		perror("realloc");
 		exit(1);
 	}
 
 	int k = 0;
-	for (int count = cp->first; count < cp->last; ++count) {
-		if ((strcmp(token[count], ">") == 0) ||
-		    (strcmp(token[count], "<") == 0)) {
-			++count;
+	for (int i = command->index_begin; i < command->index_end; ++i) {
+		if ((strcmp(tokens[i], ">") == 0) || (strcmp(tokens[i], "<") == 0)) {
+			++i;
 		} else {
-			cp->argv[k] = token[count];
+			command->argv[k] = tokens[i];
 			++k;
 		}
 	}
-	cp->argv[k] = NULL;
-
-	return;
+	command->argv[k] = NULL;
 }
 
-int separateCommands(char *token[], Command *command) {
+int tokenise_commands(char* token[], Command* command) {
 	// Basic set up
 	int i = 0;
 	int nTokens;
@@ -88,11 +87,11 @@ int separateCommands(char *token[], Command *command) {
 		return 0;
 	}
 
-	if (separator(token[0])) {
+	if (is_separator(token[0])) {
 		return -3;
 	}
 
-	if (!separator(token[nTokens - 1])) {
+	if (!is_separator(token[nTokens - 1])) {
 		token[nTokens] = seqSep;
 		++nTokens;
 	}
@@ -100,17 +99,17 @@ int separateCommands(char *token[], Command *command) {
 	// Determining commands
 	int first = 0;
 	int last;
-	char *sep;
+	char* sep;
 	int c = 0;
 	for (i = 0; i < nTokens; ++i) {
 		last = i;
-		if (separator(token[i])) {
+		if (is_separator(token[i])) {
 			sep = token[i];
 			if (first == last) {
 				return -2;
 			}
-			initCommandStructure(&(command[c]));
-			fillCommandStructure(&(command[c]), first, last, sep);
+			init_command(&command[c]);
+			fill_command(&command[c], first, last, sep);
 			++c;
 			first = i + 1;
 		}
@@ -122,8 +121,8 @@ int separateCommands(char *token[], Command *command) {
 
 	int nCommands = c;
 	for (int count = 0; count < nCommands; ++count) {
-		searchRedirection(token, &(command[count]));
-		buildCommandArgumentArray(token, &(command[count]));
+		search_redirection(&command[count], token);
+		build_argv(&command[count], token);
 	}
 
 	return nCommands;

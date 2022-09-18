@@ -32,7 +32,7 @@ int main() {
 			Command commands[max_tokens];
 
 			tokenise(tokens, input_line, " ");
-			const int command_size = separateCommands(tokens, commands);
+			const int command_size = tokenise_commands(tokens, commands);
 
 			for (int i = 0; i < command_size; ++i) {
 				pid_t pid = fork();
