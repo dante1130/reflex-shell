@@ -14,6 +14,7 @@
 
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
+bool wait_process(pid_t pid);
 void run_command(Command* c);
 void sig_init();
 void catch_sig();
@@ -43,11 +44,11 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 				pid_t pid = fork();
 				if (pid == 0) {
 					run_command(&commands[i]);
+				} else if (strcmp(commands[i].separator, ";") == 0) {
+					wait_process(pid);
+				} else if (strcmp(commands[i].separator, "&") == 0) {
+					continue;
 				}
-			}
-
-			for (int i = 0; i < command_size; ++i) {
-				wait((int*)0);
 			}
 		} else {
 			shell->terminate = true;
@@ -85,7 +86,17 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 
 void run_command(Command* c) {
 	execvp(c->argv[0], c->argv);
-	exit(0);
+	exit(1);
+}
+
+bool wait_process(pid_t pid) {
+	int status = 0;
+	if (waitpid(pid, &status, 0) == -1) {
+		perror("waitpid");
+		return false;
+	}
+
+	return true;
 }
 
 void sig_init() {
