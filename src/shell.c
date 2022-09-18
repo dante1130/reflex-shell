@@ -15,11 +15,18 @@
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
+
+//Running commands
 void run_command(Command* c);
-void sig_init();
-void catch_sig();
 bool builtin_command(Command *c, char** envp, Shell* shell);
 void pwd_command(char** envp);
+
+//Signals
+void sig_init();
+void catch_sig(int signo);
+
+//Claiming child zombies
+void claim_zombies();
 
 void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_shell(shell, argc, argv, envp);
@@ -119,8 +126,6 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
-void catch_sig() { printf(" \n"); }
-
 bool builtin_command(Command *c, char** envp, Shell* shell) {
 	const char* const BUILTIN_TYPES[] = {"prompt", "pwd", "cd"};
 	bool valid_command = false;
@@ -150,6 +155,27 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 	}
 
 	return valid_command;
+}
+
+void catch_sig(int signo) {
+	if(signo == SIGCHLD) {
+		claim_zombies();
+	} else {
+		printf("\n");
+	}
+}
+
+void claim_zombies() {
+	bool more = true;
+	pid_t pid;
+	int status;
+
+	while(more) {
+		pid = waitpid(-1, &status, WNOHANG);
+		if(pid <= 0) {
+			more = false;
+		}
+	}
 }
 
 void pwd_command(char** envp) {
