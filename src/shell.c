@@ -19,6 +19,7 @@ void run_command(Command* c);
 void sig_init();
 void catch_sig();
 bool builtin_command(Command *c, char** envp, Shell* shell);
+void pwd_command(char** envp);
 
 void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_shell(shell, argc, argv, envp);
@@ -124,16 +125,22 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 	const char* const BUILTIN_TYPES[] = {"prompt", "pwd", "cd"};
 	bool valid_command = false;
 
+	if(c->argv[0] == NULL) {
+		return false;
+	}
+
 	//prompt
 	if(strcmp(c->argv[0], BUILTIN_TYPES[0]) == 0) {
 		valid_command = true;
-		printf("prompt command found...\n");
+		printf("prompt command found... NOT IMPLEMENTED YET\n");
+		if(c->argv[1] == NULL) { return false; }
+		shell->prompt = c->argv[1];
 	}
 
 	//pwd
 	if(strcmp(c->argv[0], BUILTIN_TYPES[1]) == 0) {
 		valid_command = true;
-		printf("pwd command found...\n");
+		pwd_command(envp);
 	}
 
 	//cd
@@ -143,4 +150,21 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 	}
 
 	return valid_command;
+}
+
+void pwd_command(char** envp) {
+	char pwd_key[4];
+	pwd_key[3] = '\0';
+	int count = 0;
+
+	while(envp[count] != NULL) {
+		slice_string(pwd_key, envp[count], 0, 3);
+		if(strcmp(pwd_key, "PWD") == 0) {
+			char pwd[1000];
+			slice_string(pwd, envp[count], 4, strlen(envp[count]));
+			printf("%s\n", pwd);
+			break;
+		}
+		++count;
+ 	}
 }
