@@ -18,6 +18,7 @@ bool wait_process(pid_t pid);
 void run_command(Command* c);
 void sig_init();
 void catch_sig();
+bool builtin_command(Command *c, char** envp, Shell* shell);
 
 void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_shell(shell, argc, argv, envp);
@@ -43,7 +44,10 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			for (int i = 0; i < command_size; ++i) {
 				pid_t pid = fork();
 				if (pid == 0) {
-					run_command(&commands[i]);
+					if(!builtin_command(&commands[i], envp, shell)) {
+						run_command(&commands[i]);
+					}
+					exit(1);
 				} else if (strcmp(commands[i].separator, ";") == 0) {
 					wait_process(pid);
 				} else if (strcmp(commands[i].separator, "&") == 0) {
@@ -84,10 +88,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void run_command(Command* c) {
-	execvp(c->argv[0], c->argv);
-	exit(1);
-}
+void run_command(Command* c) { execvp(c->argv[0], c->argv); }
 
 bool wait_process(pid_t pid) {
 	int status = 0;
@@ -118,3 +119,28 @@ void sig_init() {
 }
 
 void catch_sig() { printf(" \n"); }
+
+bool builtin_command(Command *c, char** envp, Shell* shell) {
+	const char* const BUILTIN_TYPES[] = {"prompt", "pwd", "cd"};
+	bool valid_command = false;
+
+	//prompt
+	if(strcmp(c->argv[0], BUILTIN_TYPES[0]) == 0) {
+		valid_command = true;
+		printf("prompt command found...\n");
+	}
+
+	//pwd
+	if(strcmp(c->argv[0], BUILTIN_TYPES[1]) == 0) {
+		valid_command = true;
+		printf("pwd command found...\n");
+	}
+
+	//cd
+	if(strcmp(c->argv[0], BUILTIN_TYPES[2]) == 0) {
+		valid_command = true;
+		printf("cd command found...\n");
+	}
+
+	return valid_command;
+}
