@@ -6,9 +6,9 @@
 
 // static const size_t MAX_NUM_COMMANDS = 1000;
 
-static const char* const PIPE_SEP = "|";
-static const char* const CON_SEP = "&";
-static const char* const SEQ_SEP = ";";
+const char* const PIPE_SEP = "|";
+const char* const CON_SEP = "&";
+const char* const SEQ_SEP = ";";
 
 static void init_command(Command* command) {
 	command->index_begin = 0;
