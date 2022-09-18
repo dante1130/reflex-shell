@@ -5,7 +5,7 @@ TARGET_EXEC := reflex
 
 BUILD_DIR := ./build
 
-SRC_FILES := src/main.c src/token.c src/command.c src/string_utils.c
+SRC_FILES := src/main.c src/token.c src/command.c src/string_utils.c src/shell.c
 
 OBJ_FILES := $(SRC_FILES:%=$(BUILD_DIR)/%.o)
 
