@@ -1,19 +1,43 @@
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #include "string_utils.h"
 #include "token.h"
 #include "command.h"
 
+void catch_sig(int signo);
 void print_command(Command c);
 void run_command(Command* c);
 
 int main() {
 	bool terminate = false;
+
+	//signal(SIGINT, SIG_IGN);
+	//signal(SIGQUIT, SIG_IGN);
+	//signal(SIGTSTP, SIG_IGN);
+	
+	
+	struct sigaction act_catch;
+	act_catch.sa_flags = 0;
+	act_catch.sa_handler = catch_sig;
+
+	sigset_t sigs_catch;
+	sigemptyset(&sigs_catch);
+	sigaddset(&sigs_catch, SIGINT);
+	sigaddset(&sigs_catch, SIGQUIT);
+	sigaddset(&sigs_catch, SIGTSTP);
+
+	act_catch.sa_mask = sigs_catch;
+
+	sigaction(SIGINT, &act_catch, NULL);
+	sigaction(SIGQUIT, &act_catch, NULL);
+	sigaction(SIGTSTP, &act_catch, NULL);
 
 	do {
 		const size_t buffer_size = 256;
@@ -51,6 +75,8 @@ int main() {
 		}
 	} while (!terminate);
 }
+
+void catch_sig(int signo) { printf(" %d\n", signo); }
 
 void run_command(Command* c) {
 	execvp(c->argv[0], c->argv);
