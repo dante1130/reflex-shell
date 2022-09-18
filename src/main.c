@@ -11,35 +11,15 @@
 #include "token.h"
 #include "command.h"
 
+void sig_init();
 void catch_sig(int signo);
 void print_command(Command c);
 void run_command(Command* c);
 
 int main() {
+	sig_init();
+
 	bool terminate = false;
-
-	//signal(SIGINT, SIG_IGN);
-	//signal(SIGQUIT, SIG_IGN);
-	//signal(SIGTSTP, SIG_IGN);
-	
-	
-	struct sigaction act_catch, act_ignore;
-	//Catch signals
-	act_catch.sa_flags = 0;
-	act_catch.sa_handler = catch_sig;
-	sigemptyset(&act_catch.sa_mask);
-
-	sigaction(SIGINT, &act_catch, NULL);
-	sigaction(SIGQUIT, &act_catch, NULL);
-	sigaction(SIGTSTP, &act_catch, NULL);
-	
-	//Ignore signals
-	act_ignore.sa_flags = 0;
-	act_ignore.sa_handler = SIG_IGN;
-	sigemptyset(&act_ignore.sa_mask);
-	//sigaction(SIGALRM, &act_ignore, NULL);
-
-	
 
 	do {
 		const size_t buffer_size = 256;
@@ -76,6 +56,25 @@ int main() {
 			terminate = true;
 		}
 	} while (!terminate);
+}
+
+void sig_init() {
+	struct sigaction act_catch, act_ignore;
+	//Catch signals
+	act_catch.sa_flags = 0;
+	act_catch.sa_handler = catch_sig;
+	sigemptyset(&act_catch.sa_mask);
+
+	sigaction(SIGINT, &act_catch, NULL);
+	sigaction(SIGQUIT, &act_catch, NULL);
+	sigaction(SIGTSTP, &act_catch, NULL);
+	
+	//Ignore signals
+	act_ignore.sa_flags = 0;
+	act_ignore.sa_handler = SIG_IGN;
+	sigemptyset(&act_ignore.sa_mask);
+	//sigaction(SIGALRM, &act_ignore, NULL);
+
 }
 
 void catch_sig(int signo) { printf(" %d\n", signo); }
