@@ -21,11 +21,11 @@ int main() {
 
 	bool terminate = false;
 
+	printf("> ");
 	do {
 		const size_t buffer_size = 256;
 		char input_line[buffer_size];
 
-		printf("> ");
 		if (fgets(input_line, buffer_size, stdin) == NULL) {
 			continue;
 		}
@@ -51,6 +51,7 @@ int main() {
 		} else {
 			terminate = true;
 		}
+		printf("> ");
 	} while (!terminate);
 }
 
@@ -63,8 +64,6 @@ void claim_zombies() {
 		pid = waitpid(-1, &status, WNOHANG);
 		if(pid <= 0) {
 			more = false;
-		} else if(WEXITSTATUS(status)) {
-			printf("\n");
 		}
 	}
 }
@@ -92,8 +91,6 @@ void sig_init() {
 void catch_sig(int signo) {
 	if(signo == SIGCHLD) {
 		claim_zombies();
-	} else {
-		printf("\n");
 	}
 }
 
