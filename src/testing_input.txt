@@ -1,0 +1,13 @@
+./show START OF TEST CASES
+ls -lt ; date & pwd
+date ;
+pwd ;
+
+^C
+^Z
+^\
+
+make
+
+./show END OF TEST CASES
+exit
