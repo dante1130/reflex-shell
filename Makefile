@@ -22,3 +22,7 @@ clean:
 run:
 	make
 	./build/reflex
+
+test:
+	make
+	./build/reflex < src/testing_input.txt
