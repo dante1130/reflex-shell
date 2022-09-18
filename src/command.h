@@ -39,10 +39,8 @@ bool is_separator(const char* token);
  * @param commands The array of commands, the caller is responsible for calling
  * free_command() on each command in the array.
  * @param tokens The tokens to break up.
- * @param token_size The number of tokens.
  *
  * @pre tokens != NULL
- * @pre token_size > 0
  * @pre array size of token must match with token_size.
  * @pre commands != NULL
  * @post commands is populated.
@@ -53,7 +51,7 @@ bool is_separator(const char* token);
  * @retval -2 Consecutive tokens are separators.
  * @retval -3 The last command separator is "|".
  */
-int tokenise_commands(char* token[], Command* command);
+int tokenise_commands(Command* command, char** tokens);
 
 /**
  * @brief Search for stdin and stdout redirection in the command.

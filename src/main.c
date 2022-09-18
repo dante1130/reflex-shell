@@ -9,8 +9,8 @@
 #include "token.h"
 #include "command.h"
 
-void printCommand(Command c);
-void runCommand(Command* c);
+void print_command(Command c);
+void run_command(Command* c);
 
 int main() {
 	bool terminate = false;
@@ -20,7 +20,7 @@ int main() {
 		char input_line[buffer_size];
 
 		printf("> ");
-		if (fgets(input_line, 100, stdin) == NULL) {
+		if (fgets(input_line, buffer_size, stdin) == NULL) {
 			continue;
 		}
 		remove_newline(input_line);
@@ -32,15 +32,15 @@ int main() {
 			Command commands[max_tokens];
 
 			tokenise(tokens, input_line, " ");
-			const int command_size = tokenise_commands(tokens, commands);
+			const int command_size = tokenise_commands(commands, tokens);
 
 			for (int i = 0; i < command_size; ++i) {
 				pid_t pid = fork();
 				if (pid == 0) {
-					runCommand(&commands[i]);
+					run_command(&commands[i]);
 				}
-				// runCommand(&commands[count]);
-				// printCommand(commands[count], tokens);
+				// run_command(&commands[count]);
+				// print_command(commands[count], tokens);
 			}
 
 			for (int i = 0; i < command_size; ++i) {
@@ -52,12 +52,12 @@ int main() {
 	} while (!terminate);
 }
 
-void runCommand(Command* c) {
+void run_command(Command* c) {
 	execvp(c->argv[0], c->argv);
 	exit(0);
 }
 
-void printCommand(Command c) {
+void print_command(Command c) {
 	printf("Command: ");
 	int index = 0;
 	while (c.argv[index] != NULL) {

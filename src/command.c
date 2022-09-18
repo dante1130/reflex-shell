@@ -3,13 +3,27 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 
-static const size_t MAX_NUM_COMMANDS = 1000;
+// static const size_t MAX_NUM_COMMANDS = 1000;
 
 static const char* const PIPE_SEP = "|";
 static const char* const CON_SEP = "&";
 static const char* const SEQ_SEP = ";";
+
+static void init_command(Command* command) {
+	command->index_begin = 0;
+	command->index_end = 0;
+	command->separator = NULL;
+	command->argv = NULL;
+	command->stdin_file = NULL;
+	command->stdout_file = NULL;
+}
+
+static void fill_command(Command* command, int first, int last, char* sep) {
+	command->index_begin = first;
+	command->index_end = last;
+	command->separator = sep;
+}
 
 bool is_separator(const char* token) {
 	const size_t SEPARATOR_TYPE_SIZE = 3;
@@ -22,21 +36,6 @@ bool is_separator(const char* token) {
 	}
 
 	return false;
-}
-
-void init_command(Command* cp) {
-	cp->index_begin = 0;
-	cp->index_end = 0;
-	cp->separator = NULL;
-	cp->argv = NULL;
-	cp->stdin_file = NULL;
-	cp->stdout_file = NULL;
-}
-
-void fill_command(Command* cp, int first, int last, char* sep) {
-	cp->index_begin = first;
-	cp->index_end = last;
-	cp->separator = sep;
 }
 
 void search_redirection(Command* command, char** tokens) {
@@ -61,75 +60,79 @@ void build_argv(Command* command, char** tokens) {
 		max_size += -2;
 	}
 
-	command->argv = (char**)realloc(command->argv, sizeof(char*) * max_size);
+	command->argv = malloc(sizeof(char*) * max_size);
 	if (command->argv == NULL) {
 		perror("realloc");
 		exit(1);
 	}
 
-	int k = 0;
+	int last_index = 0;
 	for (int i = command->index_begin; i < command->index_end; ++i) {
 		if ((strcmp(tokens[i], ">") == 0) || (strcmp(tokens[i], "<") == 0)) {
 			++i;
 		} else {
-			command->argv[k] = tokens[i];
-			++k;
+			command->argv[last_index] = tokens[i];
+			++last_index;
 		}
 	}
-	command->argv[k] = NULL;
+	command->argv[last_index] = NULL;
 }
 
-int tokenise_commands(char* token[], Command* command) {
+int tokenise_commands(Command* command, char** tokens) {
 	// Basic set up
-	int i = 0;
-	int nTokens;
+	int token_size = 0;
+	{
+		int token_count = 0;
 
-	while (token[i] != NULL) {
-		++i;
+		while (tokens[token_count] != NULL) {
+			++token_count;
+		}
+
+		token_size = token_count;
 	}
-	nTokens = i;
 
-	if (nTokens == 0) {
+	// Return 0 if tokens are empty.
+	if (token_size == 0) {
 		return 0;
 	}
 
-	if (is_separator(token[0])) {
-		return -3;
+	// Return -1 if the first token is a separator.
+	if (is_separator(tokens[0])) {
+		return -1;
 	}
 
-	if (!is_separator(token[nTokens - 1])) {
-		token[nTokens] = (char*)SEQ_SEP;
-		++nTokens;
+	if (!is_separator(tokens[token_size - 1])) {
+		tokens[token_size] = (char*)SEQ_SEP;
+		++token_size;
 	}
 
 	// Determining commands
 	int first = 0;
-	int last;
-	char* sep;
-	int c = 0;
-	for (i = 0; i < nTokens; ++i) {
-		last = i;
-		if (is_separator(token[i])) {
-			sep = token[i];
-			if (first == last) {
+	int num_commands = 0;
+
+	for (int i = 0; i < token_size; ++i) {
+		if (is_separator(tokens[i])) {
+			// Return -2 if consecutive tokens are separators.
+			if (first == i) {
 				return -2;
 			}
-			init_command(&command[c]);
-			fill_command(&command[c], first, last, sep);
-			++c;
+
+			init_command(&command[num_commands]);
+			fill_command(&command[num_commands], first, i, tokens[i]);
+			++num_commands;
 			first = i + 1;
 		}
 	}
 
-	if (strcmp(token[last], PIPE_SEP) == 0) {
-		return -4;
+	// Return -3 if the last command separator is "|".
+	if (strcmp(tokens[token_size - 1], PIPE_SEP) == 0) {
+		return -3;
 	}
 
-	int nCommands = c;
-	for (int count = 0; count < nCommands; ++count) {
-		search_redirection(&command[count], token);
-		build_argv(&command[count], token);
+	for (int i = 0; i < num_commands; ++i) {
+		search_redirection(&command[i], tokens);
+		build_argv(&command[i], tokens);
 	}
 
-	return nCommands;
+	return num_commands;
 }
