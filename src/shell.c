@@ -127,7 +127,6 @@ void sig_init() {
 }
 
 bool builtin_command(Command *c, char** envp, Shell* shell) {
-	const char* const BUILTIN_TYPES[] = {"prompt", "pwd", "cd"};
 	bool valid_command = false;
 
 	if(c->argv[0] == NULL) {
@@ -135,7 +134,7 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 	}
 
 	//prompt
-	if(strcmp(c->argv[0], BUILTIN_TYPES[0]) == 0) {
+	if(strcmp(c->argv[0], "prompt") == 0) {
 		valid_command = true;
 		printf("prompt command found... NOT IMPLEMENTED YET\n");
 		if(c->argv[1] == NULL) { return false; }
@@ -143,13 +142,13 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 	}
 
 	//pwd
-	if(strcmp(c->argv[0], BUILTIN_TYPES[1]) == 0) {
+	if(strcmp(c->argv[0], "pwd") == 0) {
 		valid_command = true;
 		pwd_command(envp);
 	}
 
 	//cd
-	if(strcmp(c->argv[0], BUILTIN_TYPES[2]) == 0) {
+	if(strcmp(c->argv[0], "cd") == 0) {
 		valid_command = true;
 		printf("cd command found...\n");
 	}
