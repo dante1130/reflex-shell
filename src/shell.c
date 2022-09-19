@@ -120,7 +120,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void run_command(Command* c) { execvp(c->argv[0], c->argv); exit(1); }
+void run_command(Command* c) { execvp(c->argv[0], c->argv); }
 
 bool wait_process(pid_t pid) {
 	int status = 0;
