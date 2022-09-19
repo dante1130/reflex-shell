@@ -23,6 +23,7 @@ void run_command(Command* c);
 bool builtin_command(Command *c, char** envp, Shell* shell);
 void pwd_command(char** envp);
 bool file_redirection(Command *c);
+int pipe_redirection(Command *c, int pipe_fd);
 
 //Signals
 void sig_init();
@@ -52,9 +53,12 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			tokenise(tokens, input_buffer, " ");
 			const int command_size = tokenise_commands(commands, tokens);
 
+			int pipe_fd = -1;
 			for (int i = 0; i < command_size; ++i) {
 				pid_t pid = fork();
 				if (pid == 0) {
+					pipe_fd = pipe_redirection(&commands[i], pipe_fd);
+
 					if(!file_redirection(&commands[i])) {
 						continue;
 					}
@@ -228,4 +232,23 @@ bool file_redirection(Command *c) {
 	}
 
 	return true;
+}
+
+int pipe_redirection(Command *c, int pipe_fd) {
+	//If previous command has | seperator
+	if(pipe_fd != -1) {
+		dup2(pipe_fd, STDIN_FILENO);
+	}
+
+	//If this command has | seperator
+	if(strcmp(c->separator, "|") == 0) {
+		int fd = fcntl(STDOUT_FILENO, F_DUPFD, 3);
+		if(fd == -1) {
+			printf("Failed to pipe operation (|)...\n");
+			return false;
+		}
+		return fd;
+	}
+
+	return -1;
 }
