@@ -180,9 +180,8 @@ void claim_zombies() {
 void pwd_command(char** envp) {
 	char pwd_key[4];
 	pwd_key[3] = '\0';
-	int count = 0;
 
-	while(envp[count] != NULL) {
+	for(int count = 0; envp[count] != NULL; ++count) {
 		slice_string(pwd_key, envp[count], 0, 3);
 		if(strcmp(pwd_key, "PWD") == 0) {
 			char pwd[1000];
@@ -190,6 +189,5 @@ void pwd_command(char** envp) {
 			printf("%s\n", pwd);
 			break;
 		}
-		++count;
  	}
 }
