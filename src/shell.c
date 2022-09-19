@@ -19,7 +19,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
 
 // Running commands
-void handle_commands(Shell* shell, Command* commands, size_t command_size);
+void handle_commands(Shell* shell, Command* commands, int command_size);
 void run_command(Command* c);
 bool builtin_command(Command* c, char** envp, Shell* shell);
 void pwd_command(char** envp);
@@ -53,23 +53,7 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			tokenise(tokens, input_buffer, " ");
 			const int command_size = tokenise_commands(commands, tokens);
 
-			for (int i = 0; i < command_size; ++i) {
-				pid_t pid = fork();
-				if (pid == 0) {
-					if (!file_redirection(&commands[i])) {
-						continue;
-					}
-
-					if (!builtin_command(&commands[i], envp, shell)) {
-						run_command(&commands[i]);
-					}
-					exit(1);
-				} else if (strcmp(commands[i].separator, ";") == 0) {
-					wait_process(pid);
-				} else if (strcmp(commands[i].separator, "&") == 0) {
-					continue;
-				}
-			}
+			handle_commands(shell, commands, command_size);
 		} else {
 			shell->terminate = true;
 		}
@@ -104,8 +88,8 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void handle_commands(Shell* shell, Command* commands, size_t command_size) {
-	for (size_t i = 0; i < command_size; ++i) {
+void handle_commands(Shell* shell, Command* commands, int command_size) {
+	for (int i = 0; i < command_size; ++i) {
 		pid_t pid = fork();
 		if (pid == 0) {
 			if (!file_redirection(&commands[i])) {
@@ -223,15 +207,13 @@ void pwd_command(char** envp) {
 }
 
 bool file_redirection(Command* c) {
-	int fd_input, fd_output;
-
 	if (strcmp(c->stdin_file, c->stdout_file) == 0) {
 		printf("Invalid redirection: input file is output file\n");
 		return false;
 	}
 
 	if (c->stdin_file != NULL) {
-		fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
+		int fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
 		if (fd_input == -1) {
 			printf("Failed to open/create %s for reading...\n", c->stdin_file);
 			return false;
@@ -240,7 +222,7 @@ bool file_redirection(Command* c) {
 	}
 
 	if (c->stdout_file != NULL) {
-		fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
+		int fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
 		if (fd_output == -1) {
 			printf("Failed to open/create %s for writing...\n", c->stdout_file);
 			return false;
