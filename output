@@ -1,8 +1,0 @@
-total 40
--rwxrwxr-x 1 daniel daniel   380 Sep 19 14:27 output
-drwxrwxr-x 3 daniel daniel  4096 Sep 19 14:27 build
-drwxrwxr-x 2 daniel daniel  4096 Sep 19 13:22 src
--rw-rw-r-- 1 daniel daniel   524 Sep 18 23:48 Makefile
--rwxrwxr-x 1 daniel daniel 15992 Sep 18 23:48 show
--rw-rw-r-- 1 daniel daniel   588 Sep 15 15:29 README.md
--rw-rw-r-- 1 daniel daniel  1063 Sep 15 15:04 LICENSE
