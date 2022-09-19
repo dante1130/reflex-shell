@@ -18,17 +18,18 @@ void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
 
-//Running commands
+// Running commands
+void handle_commands(Shell* shell, Command* commands, size_t command_size);
 void run_command(Command* c);
-bool builtin_command(Command *c, char** envp, Shell* shell);
+bool builtin_command(Command* c, char** envp, Shell* shell);
 void pwd_command(char** envp);
-bool file_redirection(Command *c);
+bool file_redirection(Command* c);
 
-//Signals
+// Signals
 void sig_init();
 void catch_sig(int signo);
 
-//Claiming child zombies
+// Claiming child zombies
 void claim_zombies();
 
 void run_shell(Shell* shell, int argc, char** argv, char** envp) {
@@ -55,11 +56,11 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			for (int i = 0; i < command_size; ++i) {
 				pid_t pid = fork();
 				if (pid == 0) {
-					if(!file_redirection(&commands[i])) {
+					if (!file_redirection(&commands[i])) {
 						continue;
 					}
 
-					if(!builtin_command(&commands[i], envp, shell)) {
+					if (!builtin_command(&commands[i], envp, shell)) {
 						run_command(&commands[i]);
 					}
 					exit(1);
@@ -103,6 +104,26 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
+void handle_commands(Shell* shell, Command* commands, size_t command_size) {
+	for (size_t i = 0; i < command_size; ++i) {
+		pid_t pid = fork();
+		if (pid == 0) {
+			if (!file_redirection(&commands[i])) {
+				continue;
+			}
+
+			if (!builtin_command(&commands[i], shell->envp, shell)) {
+				run_command(&commands[i]);
+			}
+			exit(1);
+		} else if (strcmp(commands[i].separator, ";") == 0) {
+			wait_process(pid);
+		} else if (strcmp(commands[i].separator, "&") == 0) {
+			continue;
+		}
+	}
+}
+
 void run_command(Command* c) { execvp(c->argv[0], c->argv); }
 
 bool wait_process(pid_t pid) {
@@ -133,29 +154,31 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
-bool builtin_command(Command *c, char** envp, Shell* shell) {
+bool builtin_command(Command* c, char** envp, Shell* shell) {
 	bool valid_command = false;
 
-	if(c->argv[0] == NULL) {
+	if (c->argv[0] == NULL) {
 		return false;
 	}
 
-	//prompt
-	if(strcmp(c->argv[0], "prompt") == 0) {
+	// prompt
+	if (strcmp(c->argv[0], "prompt") == 0) {
 		valid_command = true;
 		printf("prompt command found... NOT IMPLEMENTED YET\n");
-		if(c->argv[1] == NULL) { return false; }
+		if (c->argv[1] == NULL) {
+			return false;
+		}
 		shell->prompt = c->argv[1];
 	}
 
-	//pwd
-	if(strcmp(c->argv[0], "pwd") == 0) {
+	// pwd
+	if (strcmp(c->argv[0], "pwd") == 0) {
 		valid_command = true;
 		pwd_command(envp);
 	}
 
-	//cd
-	if(strcmp(c->argv[0], "cd") == 0) {
+	// cd
+	if (strcmp(c->argv[0], "cd") == 0) {
 		valid_command = true;
 		printf("cd command found...\n");
 	}
@@ -164,7 +187,7 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 }
 
 void catch_sig(int signo) {
-	if(signo == SIGCHLD) {
+	if (signo == SIGCHLD) {
 		claim_zombies();
 	} else {
 		printf("\n");
@@ -176,9 +199,9 @@ void claim_zombies() {
 	pid_t pid;
 	int status;
 
-	while(more) {
+	while (more) {
 		pid = waitpid(-1, &status, WNOHANG);
-		if(pid <= 0) {
+		if (pid <= 0) {
 			more = false;
 		}
 	}
@@ -188,37 +211,37 @@ void pwd_command(char** envp) {
 	char pwd_key[4];
 	pwd_key[3] = '\0';
 
-	for(int count = 0; envp[count] != NULL; ++count) {
+	for (int count = 0; envp[count] != NULL; ++count) {
 		slice_string(pwd_key, envp[count], 0, 3);
-		if(strcmp(pwd_key, "PWD") == 0) {
+		if (strcmp(pwd_key, "PWD") == 0) {
 			char pwd[1000];
 			slice_string(pwd, envp[count], 4, strlen(envp[count]));
 			printf("%s\n", pwd);
 			break;
 		}
- 	}
+	}
 }
 
-bool file_redirection(Command *c) {
+bool file_redirection(Command* c) {
 	int fd_input, fd_output;
 
-	if(strcmp(c->stdin_file, c->stdout_file) == 0) {
+	if (strcmp(c->stdin_file, c->stdout_file) == 0) {
 		printf("Invalid redirection: input file is output file\n");
 		return false;
 	}
 
-	if(c->stdin_file != NULL) {
+	if (c->stdin_file != NULL) {
 		fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
-		if(fd_input == -1) {
+		if (fd_input == -1) {
 			printf("Failed to open/create %s for reading...\n", c->stdin_file);
 			return false;
 		}
 		dup2(fd_input, STDIN_FILENO);
 	}
 
-	if(c->stdout_file != NULL) {
+	if (c->stdout_file != NULL) {
 		fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
-		if(fd_output == -1) {
+		if (fd_output == -1) {
 			printf("Failed to open/create %s for writing...\n", c->stdout_file);
 			return false;
 		}
