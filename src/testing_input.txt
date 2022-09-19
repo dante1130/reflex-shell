@@ -1,4 +1,7 @@
 ./show START OF TEST CASES
+
+prompt HelloWorld!
+
 ls -lt ; date & pwd
 date ;
 pwd ;
@@ -8,6 +11,10 @@ pwd ;
 ^\
 
 make
+
+pwd
+
+cd ..
 
 ./show END OF TEST CASES
 exit
