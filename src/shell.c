@@ -7,6 +7,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/types.h>
 
 #include "string_utils.h"
 #include "token.h"
@@ -20,6 +22,7 @@ bool wait_process(pid_t pid);
 void run_command(Command* c);
 bool builtin_command(Command *c, char** envp, Shell* shell);
 void pwd_command(char** envp);
+bool file_redirection(Command *c);
 
 //Signals
 void sig_init();
@@ -52,6 +55,10 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			for (int i = 0; i < command_size; ++i) {
 				pid_t pid = fork();
 				if (pid == 0) {
+					if(!file_redirection(&commands[i])) {
+						continue;
+					}
+
 					if(!builtin_command(&commands[i], envp, shell)) {
 						run_command(&commands[i]);
 					}
@@ -190,4 +197,33 @@ void pwd_command(char** envp) {
 			break;
 		}
  	}
+}
+
+bool file_redirection(Command *c) {
+	int fd_input, fd_output;
+
+	if(strcmp(c->stdin_file, c->stdout_file) == 0) {
+		printf("Invalid redirection: input file is output file\n");
+		return false;
+	}
+
+	if(c->stdin_file != NULL) {
+		fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
+		if(fd_input == -1) {
+			printf("Failed to open/create %s for reading...\n", c->stdin_file);
+			return false;
+		}
+		dup2(fd_input, STDIN_FILENO);
+	}
+
+	if(c->stdout_file != NULL) {
+		fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
+		if(fd_output == -1) {
+			printf("Failed to open/create %s for writing...\n", c->stdout_file);
+			return false;
+		}
+		dup2(fd_output, STDOUT_FILENO);
+	}
+
+	return true;
 }
