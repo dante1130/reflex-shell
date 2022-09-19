@@ -15,9 +15,17 @@
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
+
+//Running commands
 void run_command(Command* c);
+bool builtin_command(Command *c, char** envp, Shell* shell);
+void pwd_command(char** envp);
+
+//Signals
 void sig_init();
 void catch_sig(int signo);
+
+//Claiming child zombies
 void claim_zombies();
 
 void run_shell(Shell* shell, int argc, char** argv, char** envp) {
@@ -44,7 +52,10 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			for (int i = 0; i < command_size; ++i) {
 				pid_t pid = fork();
 				if (pid == 0) {
-					run_command(&commands[i]);
+					if(!builtin_command(&commands[i], envp, shell)) {
+						run_command(&commands[i]);
+					}
+					exit(1);
 				} else if (strcmp(commands[i].separator, ";") == 0) {
 					wait_process(pid);
 				} else if (strcmp(commands[i].separator, "&") == 0) {
@@ -85,10 +96,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void run_command(Command* c) {
-	execvp(c->argv[0], c->argv);
-	exit(1);
-}
+void run_command(Command* c) { execvp(c->argv[0], c->argv); }
 
 bool wait_process(pid_t pid) {
 	int status = 0;
@@ -118,6 +126,36 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
+bool builtin_command(Command *c, char** envp, Shell* shell) {
+	bool valid_command = false;
+
+	if(c->argv[0] == NULL) {
+		return false;
+	}
+
+	//prompt
+	if(strcmp(c->argv[0], "prompt") == 0) {
+		valid_command = true;
+		printf("prompt command found... NOT IMPLEMENTED YET\n");
+		if(c->argv[1] == NULL) { return false; }
+		shell->prompt = c->argv[1];
+	}
+
+	//pwd
+	if(strcmp(c->argv[0], "pwd") == 0) {
+		valid_command = true;
+		pwd_command(envp);
+	}
+
+	//cd
+	if(strcmp(c->argv[0], "cd") == 0) {
+		valid_command = true;
+		printf("cd command found...\n");
+	}
+
+	return valid_command;
+}
+
 void catch_sig(int signo) {
 	if(signo == SIGCHLD) {
 		claim_zombies();
@@ -137,4 +175,19 @@ void claim_zombies() {
 			more = false;
 		}
 	}
+}
+
+void pwd_command(char** envp) {
+	char pwd_key[4];
+	pwd_key[3] = '\0';
+
+	for(int count = 0; envp[count] != NULL; ++count) {
+		slice_string(pwd_key, envp[count], 0, 3);
+		if(strcmp(pwd_key, "PWD") == 0) {
+			char pwd[1000];
+			slice_string(pwd, envp[count], 4, strlen(envp[count]));
+			printf("%s\n", pwd);
+			break;
+		}
+ 	}
 }
