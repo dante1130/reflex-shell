@@ -26,9 +26,9 @@ ls  -l  /dev/*
 
 ./show TEST_4_COMPLETE
 
-sleep 10  ;  echo hello
-sleep 10  ;  ls -l
-sleep 10  ;  echo hello1  ;   sleep 10 ;  echo hello2
+sleep 1  ;  echo hello
+sleep 1  ;  ls -l
+sleep 1  ;  echo hello1  ;   sleep 1 ;  echo hello2
 
 ./show TEST_5_COMPLETE
 
@@ -64,7 +64,7 @@ cat | cat | cat | cat | cat | cat | cat | cat | cat | cat | grep line
 
 ./show TEST_10_COMPLETE
 
-ls -l   > junk  ;  cat < /tmp/foo ;  /bin/ls  -lt  /dev/tty*  |  grep tty  |  sort  |  head  > junk2  &  sleep 10  ;  cat  < junk2
+ls -l   > junk  ;  cat < /tmp/foo ;  /bin/ls  -lt  /dev/tty*  |  grep tty  |  sort  |  head  > junk2  &  sleep 1  ;  cat  < junk2
 ls -lt | cat ;  ps | sort  &  echo ps-output ; sleep 10 & echo wait-for-10seconds ; cat /tmp/foo | cat | grep line | sort -r
 
 CTRL-C

@@ -77,6 +77,9 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 					if(!builtin_command(&commands[i], envp, shell)) {
 						run_command(&commands[i]);
 					}
+
+					close(STDIN_FILENO);
+					close(STDOUT_FILENO);
 					exit(0);
 				} else if (strcmp(commands[i].separator, ";") == 0) {
 					wait_process(pid);
