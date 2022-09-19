@@ -55,17 +55,18 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 
 			int pipe_fd[2] = {-1, -1};
 			int prev_pipe_fd = -1;
+			//printf("\ncommand size: %d\n", command_size);
 			for (int i = 0; i < command_size; ++i) {
 				prev_pipe_fd = pipe_fd[0];
 				pipe_redirection(&commands[i], &pipe_fd[0], &pipe_fd[1]);
 				pid_t pid = fork();
 				if (pid == 0) {
 					if(pipe_fd[1] != -1) {
-						printf("Chaning output for: %s\n", commands[i].argv[0]);
+						//printf("Chaning output for: %s\n", commands[i].argv[0]);
 						dup2(pipe_fd[1], STDOUT_FILENO);
 					}
 					if(prev_pipe_fd != -1) {
-						printf("Chaning input for: %s\n", commands[i].argv[0]);
+						//printf("Chaning input for: %s\n", commands[i].argv[0]);
 						dup2(prev_pipe_fd, STDIN_FILENO);
 					}
 
@@ -76,19 +77,18 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 					if(!builtin_command(&commands[i], envp, shell)) {
 						run_command(&commands[i]);
 					}
-					exit(1);
+					exit(0);
 				} else if (strcmp(commands[i].separator, ";") == 0) {
-					printf("Start to wait...\n");
 					wait_process(pid);
-					if(prev_pipe_fd != -1) {
-						close(prev_pipe_fd);
-					}
-					printf("Stopped waiting...\n");
 				} else if (strcmp(commands[i].separator, "&") == 0) {
 					continue;
 				} else if (strcmp(commands[i].separator, "|") == 0) {
 					wait_process(pid);
 					close(pipe_fd[1]);
+				}
+
+				if(prev_pipe_fd != -1) {
+					close(prev_pipe_fd);
 				}
 			}
 		} else {
@@ -125,7 +125,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void run_command(Command* c) { execvp(c->argv[0], c->argv); }
+void run_command(Command* c) { execvp(c->argv[0], c->argv); exit(1); }
 
 bool wait_process(pid_t pid) {
 	int status = 0;
