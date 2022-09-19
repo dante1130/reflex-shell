@@ -202,6 +202,11 @@ void pwd_command(char** envp) {
 bool file_redirection(Command *c) {
 	int fd_input, fd_output;
 
+	if(strcmp(c->stdin_file, c->stdout_file) == 0) {
+		printf("Invalid redirection: input file is output file\n");
+		return false;
+	}
+
 	if(c->stdin_file != NULL) {
 		fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
 		if(fd_input == -1) {
