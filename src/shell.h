@@ -19,8 +19,6 @@ typedef struct {
 	char** argv;
 	/// The environment variables passed to the shell.
 	char** envp;
-	/// The file descriptors tracked by the shell.
-	struct file_descriptors fds;
 } Shell;
 
 /**
