@@ -130,12 +130,14 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			*/
 		} else {
 			shell->terminate = true;
+			free(shell->prompt);
 		}
 	} while (!shell->terminate);
 }
 
 void init_shell(Shell* shell, int argc, char** argv, char** envp) {
-	shell->prompt = "> ";
+	shell->prompt = malloc(sizeof(char));
+	shell->prompt[0] = '>';
 	shell->terminate = false;
 	shell->argc = argc;
 	shell->argv = argv;
@@ -203,6 +205,7 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 	if(strcmp(c->argv[0], "prompt") == 0) {
 		valid_command = true;
 		if(c->argv[1] == NULL) { return false; }
+		if(shell->prompt != NULL) { free(shell->prompt); }
 		shell->prompt = strdup(c->argv[1]);
 	}
 
