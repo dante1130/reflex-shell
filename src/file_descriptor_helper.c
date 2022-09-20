@@ -26,6 +26,7 @@ void close_file_descriptors(struct file_descriptors* fds) {
 }
 
 void set_current_file_descriptors(struct file_descriptors* fds) {
+    reset_file_descriptors(fds);
     fds->curr_fd_input = dup(STDIN_FILENO);
     fds->curr_fd_output = dup(STDOUT_FILENO);
     if(fds->next_fd_input != -1) {

@@ -13,6 +13,7 @@
 #include "string_utils.h"
 #include "token.h"
 #include "command.h"
+#include "file_descriptor_helper.h"
 
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
@@ -28,8 +29,7 @@ void pwd_command(char** envp);
 
 //Redirection
 bool file_redirection(Command* c, struct file_descriptors* fds);
-void pipe_redirection_creation(Command* c, struct file_descriptors* fds);
-void pipe_redirection(struct file_descriptors* fds);
+void pipe_redirection(Command* c, struct file_descriptors* fds);
 
 //Signals
 void sig_init();
@@ -49,35 +49,40 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 		const size_t buffer_size = 256;
 		char input_buffer[buffer_size];
 
+		//Get command input
 		if (!prompt_input(shell->prompt, input_buffer, buffer_size)) {
 			continue;
 		}
 
-		if (strcmp("exit", input_buffer) != 0) {
-			const size_t max_tokens = 128;
-			char* tokens[max_tokens];
-
-			Command commands[max_tokens];
-
-			tokenise(tokens, input_buffer, " ");
-			const int command_size = tokenise_commands(commands, tokens);
-
-			for (int i = 0; i < command_size; ++i) {
-				set_current_file_descriptors(&fds);
-				pipe_redirection_creation(&commands[i], &fds);
-				
-				if(strcmp(commands[i].separator, "&") == 0) {
-					run_concurrent(&commands[i], envp, shell, &fds);
-					
-				} else {
-					run_sequential(&commands[i], envp, shell, &fds);
-				}
-				reset_file_descriptors(&fds);
-			}
-		} else {
+		//If exit quit
+		if (strcmp("exit", input_buffer) == 0) {
 			shell->terminate = true;
 			free(shell->prompt);
+			continue;
 		}
+
+		//Run commands
+		const size_t max_tokens = 128;
+		char* tokens[max_tokens];
+
+		Command commands[max_tokens];
+
+		tokenise(tokens, input_buffer, " ");
+		const int command_size = tokenise_commands(commands, tokens);
+
+		for (int i = 0; i < command_size; ++i) {
+			set_current_file_descriptors(&fds); //Reset back to terminal and sets current & next file desciptors
+			pipe_redirection(&commands[i], &fds);
+			
+			if(strcmp(commands[i].separator, "&") == 0) { //If &
+				run_concurrent(&commands[i], envp, shell, &fds);
+				
+			} else { //If ; or |
+				run_sequential(&commands[i], envp, shell, &fds);
+			}
+		}
+		reset_file_descriptors(&fds); //Reset back to terminal
+
 	} while (!shell->terminate);
 }
 
@@ -274,7 +279,7 @@ bool file_redirection(Command *c, struct file_descriptors* fds) {
 	return true;
 }
 
-void pipe_redirection_creation(Command* c, struct file_descriptors* fds) {
+void pipe_redirection(Command* c, struct file_descriptors* fds) {
 	//If this command has | seperator
 	if(strcmp(c->separator, "|") == 0) {
 		int p[2];
@@ -285,15 +290,6 @@ void pipe_redirection_creation(Command* c, struct file_descriptors* fds) {
 		}
 		fds->next_fd_input = p[0];
 		fds->curr_fd_output = p[1];
-	}
-}
-
-void pipe_redirection(struct file_descriptors* fds) {
-	if(fds->curr_fd_output != -1) { //Change output
-		//dup2(p1, STDOUT_FILENO);
-	}
-	if(fds->curr_fd_input != -1) { //Change input
-		//dup2(p2, STDIN_FILENO);
 	}
 }
 

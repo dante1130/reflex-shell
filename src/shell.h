@@ -2,7 +2,6 @@
 #define SHELL_H
 
 #include <stdbool.h>
-#include "file_descriptor_helper.h"
 
 /**
  * @struct Shell
