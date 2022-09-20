@@ -1,0 +1,9 @@
+total 40
+drwxrwxr-x 3 daniel daniel  4096 Sep 20 19:38 build
+-rwxrwxr-x 1 daniel daniel   378 Sep 20 19:39 junk
+-rwxrwxr-x 1 daniel daniel     0 Sep 20 19:39 junk2
+-rw-rw-r-- 1 daniel daniel  1063 Sep 15 15:04 LICENSE
+-rw-rw-r-- 1 daniel daniel   516 Sep 20 15:42 Makefile
+-rw-rw-r-- 1 daniel daniel   588 Sep 15 15:29 README.md
+-rwxrwxr-x 1 daniel daniel 15992 Sep 18 23:48 show
+drwxrwxr-x 2 daniel daniel  4096 Sep 20 19:26 src

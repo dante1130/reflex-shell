@@ -46,6 +46,10 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_shell(shell, argc, argv, envp);
 	sig_init();
 
+	struct file_descriptors fds;
+	fds.std_fd_input = dup(STDIN_FILENO);
+	fds.std_fd_output = dup(STDOUT_FILENO);
+
 	do {
 		const size_t buffer_size = 256;
 		char input_buffer[buffer_size];
@@ -64,17 +68,11 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			const int command_size = tokenise_commands(commands, tokens);
 
 			pid_t pid = 1;
-			struct file_descriptors fds;
-			fds.std_fd_input = dup(STDIN_FILENO);
-			fds.std_fd_output = dup(STDOUT_FILENO);
 
 			for (int i = 0; i < command_size; ++i) {
-				fds.std_fd_input = dup(fds.std_fd_input);
-				fds.std_fd_output = dup(fds.std_fd_input);
 				fds.curr_fd_input = dup(STDIN_FILENO);
 				fds.curr_fd_output = dup(STDOUT_FILENO);
 				if(fds.next_fd_input != -1) {
-					printf("Setting up next input\n");
 					fds.curr_fd_input = dup(fds.next_fd_input);
 					fds.next_fd_input = -1;
 				}
@@ -113,6 +111,13 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 						pid = fork();
 						if(pid == 0) {
 							run_command(&commands[i]);
+							//close(fds.curr_fd_input);
+							//close(fds.curr_fd_output);
+							//close(fds.std_fd_input);
+							//close(fds.std_fd_output);
+							//close(fds.next_fd_input);
+							
+							//exit(1);
 							exit_process(&fds);
 						} else {
 							wait_process(pid);
@@ -315,6 +320,10 @@ void pipe_redirection(struct file_descriptors* fds) {
 void exit_process(struct file_descriptors* fds) {
 	close(fds->curr_fd_input);
 	close(fds->curr_fd_output);
+	close(fds->std_fd_input);
+	close(fds->std_fd_output);
 	close(fds->next_fd_input);
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
 	exit(0);
 }
