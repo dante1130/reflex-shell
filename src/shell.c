@@ -14,18 +14,26 @@
 #include "token.h"
 #include "command.h"
 
+typedef struct file_descriptors {
+	int curr_fd_input;
+	int curr_fd_output;
+	int std_fd_input;
+	int std_fd_output;
+	int next_fd_input;
+} FILE_DESCRIPTOR;
+
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
-void exit_process();
+void exit_process(struct file_descriptors* fds);
 
 //Running commands
 void run_command(Command* c);
 bool builtin_command(Command *c, char** envp, Shell* shell);
 void pwd_command(char** envp);
-bool file_redirection(Command* c);
-void pipe_redirection_creation(Command* c, int* pipe_fd, int* p2);
-void pipe_redirection(int p1, int p2);
+bool file_redirection(Command* c, struct file_descriptors* fds);
+void pipe_redirection_creation(Command* c, struct file_descriptors* fds);
+void pipe_redirection(struct file_descriptors* fds);
 
 //Signals
 void sig_init();
@@ -55,12 +63,22 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			tokenise(tokens, input_buffer, " ");
 			const int command_size = tokenise_commands(commands, tokens);
 
-			int pipe_fd[2] = {-1, -1};
-			int prev_pipe_fd = -1;
 			pid_t pid = 1;
+			struct file_descriptors fds;
+			fds.std_fd_input = dup(STDIN_FILENO);
+			fds.std_fd_output = dup(STDOUT_FILENO);
+
 			for (int i = 0; i < command_size; ++i) {
-				prev_pipe_fd = pipe_fd[0];
-				pipe_redirection_creation(&commands[i], &pipe_fd[0], &pipe_fd[1]);
+				fds.std_fd_input = dup(fds.std_fd_input);
+				fds.std_fd_output = dup(fds.std_fd_input);
+				fds.curr_fd_input = dup(STDIN_FILENO);
+				fds.curr_fd_output = dup(STDOUT_FILENO);
+				if(fds.next_fd_input != -1) {
+					printf("Setting up next input\n");
+					fds.curr_fd_input = dup(fds.next_fd_input);
+					fds.next_fd_input = -1;
+				}
+				pipe_redirection_creation(&commands[i], &fds);
 				
 				if(strcmp(commands[i].separator, "&") == 0) {
 					pid = fork();
@@ -68,66 +86,46 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 						continue;
 					}
 
-					pipe_redirection(pipe_fd[1], prev_pipe_fd);
-					if(!file_redirection(&commands[i])) {
-						exit_process();
+					//pipe_redirection(&fds);
+					if(!file_redirection(&commands[i], &fds)) {
+						exit_process(&fds);
 					}
+
+					dup2(fds.curr_fd_input, STDIN_FILENO);
+					dup2(fds.curr_fd_output, STDOUT_FILENO);
 
 					if(!builtin_command(&commands[i], envp, shell)) {
 						run_command(&commands[i]);
 					}
 
-					exit_process();
+					exit_process(&fds);
 					
-				} else if(strcmp(commands[i].separator, ";") == 0) {
+				} else {
+					//pipe_redirection(&fds);
+					if(!file_redirection(&commands[i], &fds)) {
+						exit_process(&fds);
+					}
+
+					dup2(fds.curr_fd_input, STDIN_FILENO);
+					dup2(fds.curr_fd_output, STDOUT_FILENO);
+
 					if(!builtin_command(&commands[i], envp, shell)) {
 						pid = fork();
 						if(pid == 0) {
 							run_command(&commands[i]);
-							exit_process();
+							exit_process(&fds);
 						} else {
 							wait_process(pid);
 						}
 					}
-
-				} else if(strcmp(commands[i].separator, "|") == 0) {
-					
 				}
+				close(fds.curr_fd_input);
+				close(fds.curr_fd_output);
+				dup2(fds.std_fd_input, STDIN_FILENO);
+				dup2(fds.std_fd_output, STDOUT_FILENO);
 			}
-
-			/*
-			int pipe_fd[2] = {-1, -1};
-			int prev_pipe_fd = -1;
-			for (int i = 0; i < command_size; ++i) {
-				prev_pipe_fd = pipe_fd[0];
-				pipe_redirection_creation(&commands[i], &pipe_fd[0], &pipe_fd[1]);
-				
-				pid_t pid = fork();
-				if (pid == 0) {
-					pipe_redirection(pipe_fd[1], prev_pipe_fd);
-					if(!file_redirection(&commands[i])) {
-						continue;
-					}
-
-					if(!builtin_command(&commands[i], envp, shell)) {
-						run_command(&commands[i]);
-					}
-
-					exit_process();
-				} else if (strcmp(commands[i].separator, ";") == 0) {
-					wait_process(pid);
-				} else if (strcmp(commands[i].separator, "&") == 0) {
-					continue;
-				} else if (strcmp(commands[i].separator, "|") == 0) {
-					wait_process(pid);
-					close(pipe_fd[1]);
-				}
-
-				if(prev_pipe_fd != -1) {
-					close(prev_pipe_fd);
-				}
-			}
-			*/
+			//dup2(fds.std_fd_input, STDIN_FILENO);
+			//dup2(fds.std_fd_output, STDOUT_FILENO);
 		} else {
 			shell->terminate = true;
 			free(shell->prompt);
@@ -260,7 +258,7 @@ void pwd_command(char** envp) {
  	}
 }
 
-bool file_redirection(Command *c) {
+bool file_redirection(Command *c, struct file_descriptors* fds) {
 	int fd_input, fd_output;
 
 	if(c->stdin_file != NULL && c->stdout_file != NULL) {
@@ -276,7 +274,7 @@ bool file_redirection(Command *c) {
 			printf("Failed to open/create %s for reading...\n", c->stdin_file);
 			return false;
 		}
-		dup2(fd_input, STDIN_FILENO);
+		fds->curr_fd_input = fd_input;
 	}
 
 	if(c->stdout_file != NULL) {
@@ -285,40 +283,38 @@ bool file_redirection(Command *c) {
 			printf("Failed to open/create %s for writing...\n", c->stdout_file);
 			return false;
 		}
-		dup2(fd_output, STDOUT_FILENO);
+		fds->curr_fd_output = fd_output;
 	}
 
 	return true;
 }
 
-void pipe_redirection_creation(Command* c, int* p1, int* p2) {
+void pipe_redirection_creation(Command* c, struct file_descriptors* fds) {
 	//If this command has | seperator
 	if(strcmp(c->separator, "|") == 0) {
 		int p[2];
 		if(pipe(p) < 0) {
 			perror("Pipe call");
-			*p1 = -1;
-			*p2 = -1;
+			fds->curr_fd_input = dup(fds->std_fd_input);
+			fds->curr_fd_output = dup(fds->std_fd_output);
 		}
-		*p1 = p[0];
-		*p2 = p[1];
-	} else {
-		*p1 = -1;
-		*p2 = -1;
+		fds->next_fd_input = p[0];
+		fds->curr_fd_output = p[1];
 	}
 }
 
-void pipe_redirection(int p1, int p2) {
-	if(p1 != -1) { //Change otuput
-		dup2(p1, STDOUT_FILENO);
+void pipe_redirection(struct file_descriptors* fds) {
+	if(fds->curr_fd_output != -1) { //Change output
+		//dup2(p1, STDOUT_FILENO);
 	}
-	if(p2 != -1) { //Change input
-		dup2(p2, STDIN_FILENO);
+	if(fds->curr_fd_input != -1) { //Change input
+		//dup2(p2, STDIN_FILENO);
 	}
 }
 
-void exit_process() {
-	close(STDIN_FILENO);
-	close(STDOUT_FILENO);
+void exit_process(struct file_descriptors* fds) {
+	close(fds->curr_fd_input);
+	close(fds->curr_fd_output);
+	close(fds->next_fd_input);
 	exit(0);
 }
