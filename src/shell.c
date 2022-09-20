@@ -20,10 +20,11 @@ bool wait_process(pid_t pid);
 
 // Running commands
 void handle_commands(Shell* shell, Command* commands, int command_size);
-void run_command(Command* c);
-bool builtin_command(Command* c, char** envp, Shell* shell);
+void run_command(Command* command);
+bool builtin_command(Command* command, char** envp, Shell* shell);
 void pwd_command(char** envp);
-bool file_redirection(Command* c);
+void cd_command(char** envp, char* path);
+bool file_redirection(Command* command);
 
 // Signals
 void sig_init();
@@ -108,7 +109,7 @@ void handle_commands(Shell* shell, Command* commands, int command_size) {
 	}
 }
 
-void run_command(Command* c) { execvp(c->argv[0], c->argv); }
+void run_command(Command* command) { execvp(command->argv[0], command->argv); }
 
 bool wait_process(pid_t pid) {
 	int status = 0;
@@ -138,31 +139,31 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
-bool builtin_command(Command* c, char** envp, Shell* shell) {
+bool builtin_command(Command* command, char** envp, Shell* shell) {
 	bool valid_command = false;
 
-	if (c->argv[0] == NULL) {
+	if (command->argv[0] == NULL) {
 		return false;
 	}
 
 	// prompt
-	if (strcmp(c->argv[0], "prompt") == 0) {
+	if (strcmp(command->argv[0], "prompt") == 0) {
 		valid_command = true;
 		printf("prompt command found... NOT IMPLEMENTED YET\n");
-		if (c->argv[1] == NULL) {
+		if (command->argv[1] == NULL) {
 			return false;
 		}
-		shell->prompt = c->argv[1];
+		shell->prompt = command->argv[1];
 	}
 
 	// pwd
-	if (strcmp(c->argv[0], "pwd") == 0) {
+	if (strcmp(command->argv[0], "pwd") == 0) {
 		valid_command = true;
 		pwd_command(envp);
 	}
 
 	// cd
-	if (strcmp(c->argv[0], "cd") == 0) {
+	if (strcmp(command->argv[0], "cd") == 0) {
 		valid_command = true;
 		printf("cd command found...\n");
 	}
@@ -195,38 +196,42 @@ void pwd_command(char** envp) {
 	char pwd_key[4];
 	pwd_key[3] = '\0';
 
-	for (int count = 0; envp[count] != NULL; ++count) {
-		slice_string(pwd_key, envp[count], 0, 3);
+	for (int i = 0; envp[i] != NULL; ++i) {
+		slice_string(pwd_key, envp[i], 0, 3);
 		if (strcmp(pwd_key, "PWD") == 0) {
 			char pwd[1000];
-			slice_string(pwd, envp[count], 4, strlen(envp[count]));
+			slice_string(pwd, envp[i], 4, strlen(envp[i]));
 			printf("%s\n", pwd);
 			break;
 		}
 	}
 }
 
-bool file_redirection(Command* c) {
-	if (c->stdin_file != NULL && c->stdout_file != NULL) {
-		if (strcmp(c->stdin_file, c->stdout_file) == 0) {
+void cd_command(char** envp, char* path) {}
+
+bool file_redirection(Command* command) {
+	if (command->stdin_file != NULL && command->stdout_file != NULL) {
+		if (strcmp(command->stdin_file, command->stdout_file) == 0) {
 			printf("Invalid redirection: input file is output file\n");
 			return false;
 		}
 	}
 
-	if (c->stdin_file != NULL) {
-		int fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
+	if (command->stdin_file != NULL) {
+		int fd_input = open(command->stdin_file, O_RDONLY | O_CREAT, 0777);
 		if (fd_input == -1) {
-			printf("Failed to open/create %s for reading...\n", c->stdin_file);
+			printf("Failed to open/create %s for reading...\n",
+			       command->stdin_file);
 			return false;
 		}
 		dup2(fd_input, STDIN_FILENO);
 	}
 
-	if (c->stdout_file != NULL) {
-		int fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
+	if (command->stdout_file != NULL) {
+		int fd_output = open(command->stdout_file, O_WRONLY | O_CREAT, 0777);
 		if (fd_output == -1) {
-			printf("Failed to open/create %s for writing...\n", c->stdout_file);
+			printf("Failed to open/create %s for writing...\n",
+			       command->stdout_file);
 			return false;
 		}
 		dup2(fd_output, STDOUT_FILENO);
