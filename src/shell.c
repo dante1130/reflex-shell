@@ -17,12 +17,15 @@
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
+void exit_process();
 
 //Running commands
 void run_command(Command* c);
 bool builtin_command(Command *c, char** envp, Shell* shell);
 void pwd_command(char** envp);
-bool file_redirection(Command *c);
+bool file_redirection(Command* c);
+void pipe_redirection_creation(Command* c, int* pipe_fd, int* p2);
+void pipe_redirection(int p1, int p2);
 
 //Signals
 void sig_init();
@@ -52,9 +55,15 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			tokenise(tokens, input_buffer, " ");
 			const int command_size = tokenise_commands(commands, tokens);
 
+			int pipe_fd[2] = {-1, -1};
+			int prev_pipe_fd = -1;
 			for (int i = 0; i < command_size; ++i) {
+				prev_pipe_fd = pipe_fd[0];
+				pipe_redirection_creation(&commands[i], &pipe_fd[0], &pipe_fd[1]);
+				
 				pid_t pid = fork();
 				if (pid == 0) {
+					pipe_redirection(pipe_fd[1], prev_pipe_fd);
 					if(!file_redirection(&commands[i])) {
 						continue;
 					}
@@ -62,11 +71,19 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 					if(!builtin_command(&commands[i], envp, shell)) {
 						run_command(&commands[i]);
 					}
-					exit(1);
+
+					exit_process();
 				} else if (strcmp(commands[i].separator, ";") == 0) {
 					wait_process(pid);
 				} else if (strcmp(commands[i].separator, "&") == 0) {
 					continue;
+				} else if (strcmp(commands[i].separator, "|") == 0) {
+					wait_process(pid);
+					close(pipe_fd[1]);
+				}
+
+				if(prev_pipe_fd != -1) {
+					close(prev_pipe_fd);
 				}
 			}
 		} else {
@@ -228,4 +245,36 @@ bool file_redirection(Command *c) {
 	}
 
 	return true;
+}
+
+void pipe_redirection_creation(Command* c, int* p1, int* p2) {
+	//If this command has | seperator
+	if(strcmp(c->separator, "|") == 0) {
+		int p[2];
+		if(pipe(p) < 0) {
+			perror("Pipe call");
+			*p1 = -1;
+			*p2 = -1;
+		}
+		*p1 = p[0];
+		*p2 = p[1];
+	} else {
+		*p1 = -1;
+		*p2 = -1;
+	}
+}
+
+void pipe_redirection(int p1, int p2) {
+	if(p1 != -1) { //Change otuput
+		dup2(p1, STDOUT_FILENO);
+	}
+	if(p2 != -1) { //Change input
+		dup2(p2, STDIN_FILENO);
+	}
+}
+
+void exit_process() {
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	exit(0);
 }
