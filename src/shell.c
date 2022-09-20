@@ -57,6 +57,47 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 
 			int pipe_fd[2] = {-1, -1};
 			int prev_pipe_fd = -1;
+			pid_t pid = 1;
+			for (int i = 0; i < command_size; ++i) {
+				prev_pipe_fd = pipe_fd[0];
+				pipe_redirection_creation(&commands[i], &pipe_fd[0], &pipe_fd[1]);
+				
+				if(strcmp(commands[i].separator, "&") == 0) {
+					pid = fork();
+					if (pid != 0) {
+						continue;
+					}
+
+					pipe_redirection(pipe_fd[1], prev_pipe_fd);
+					if(!file_redirection(&commands[i])) {
+						exit_process();
+					}
+
+					if(!builtin_command(&commands[i], envp, shell)) {
+						run_command(&commands[i]);
+					}
+
+					exit_process();
+					
+				} else if(strcmp(commands[i].separator, ";") == 0) {
+					if(!builtin_command(&commands[i], envp, shell)) {
+						pid = fork();
+						if(pid == 0) {
+							run_command(&commands[i]);
+							exit_process();
+						} else {
+							wait_process(pid);
+						}
+					}
+
+				} else if(strcmp(commands[i].separator, "|") == 0) {
+					
+				}
+			}
+
+			/*
+			int pipe_fd[2] = {-1, -1};
+			int prev_pipe_fd = -1;
 			for (int i = 0; i < command_size; ++i) {
 				prev_pipe_fd = pipe_fd[0];
 				pipe_redirection_creation(&commands[i], &pipe_fd[0], &pipe_fd[1]);
@@ -86,6 +127,7 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 					close(prev_pipe_fd);
 				}
 			}
+			*/
 		} else {
 			shell->terminate = true;
 		}
@@ -106,7 +148,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	do {
 		reprompt = false;
 
-		printf("%s", prompt);
+		printf("%s ", prompt);
 		if (fgets(input_buffer, buffer_size, stdin) == NULL) {
 			if (errno == EINTR) {
 				reprompt = true;
@@ -160,9 +202,8 @@ bool builtin_command(Command *c, char** envp, Shell* shell) {
 	//prompt
 	if(strcmp(c->argv[0], "prompt") == 0) {
 		valid_command = true;
-		printf("prompt command found... NOT IMPLEMENTED YET\n");
 		if(c->argv[1] == NULL) { return false; }
-		shell->prompt = c->argv[1];
+		shell->prompt = strdup(c->argv[1]);
 	}
 
 	//pwd
