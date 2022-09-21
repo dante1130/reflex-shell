@@ -120,7 +120,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 void run_sequential(Command* c, char** envp, Shell* shell,
                     struct file_descriptors* fds) {
 	if (!file_redirection(c, fds)) {
-		exit_process(fds);
+		return;
 	}
 
 	set_std_file_descriptors(fds);
@@ -264,21 +264,33 @@ bool file_redirection(Command* c, struct file_descriptors* fds) {
 	}
 
 	if (c->stdin_file != NULL) {
-		int fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
-		if (fd_input == -1) {
-			printf("Failed to open/create %s for reading...\n", c->stdin_file);
+		int fd_input = open(c->stdin_file, O_RDONLY, 0777);
+		if (fd_input <= -1) {
+			printf("Failed to open %s for reading...\n", c->stdin_file);
 			return false;
 		}
 		fds->curr_fd_input = fd_input;
 	}
 
 	if (c->stdout_file != NULL) {
-		int fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
-		if (fd_output == -1) {
-			printf("Failed to open/create %s for writing...\n", c->stdout_file);
-			return false;
+		int fd_output = open(c->stdout_file, O_WRONLY | O_CREAT | O_EXCL, 0777);
+		if (fd_output <= -1) {
+			if(errno == EEXIST) {
+				remove(c->stdout_file);
+				fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
+				if(fd_output >= 0) {
+					fds->curr_fd_output = fd_output;
+				} else {
+					printf("Failed to open/create %s for writing...\n", c->stdout_file);
+					return false;
+				}
+			} else {
+				printf("Failed to open/create %s for writing...\n", c->stdout_file);
+				return false;
+			}
+		} else {
+			fds->curr_fd_output = fd_output;
 		}
-		fds->curr_fd_output = fd_output;
 	}
 
 	return true;
