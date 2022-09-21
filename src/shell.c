@@ -161,7 +161,6 @@ void run_external_command(Command* c) { execvp(c->argv[0], c->argv); }
 bool wait_process(pid_t pid) {
 	int status = 0;
 	if (waitpid(pid, &status, 0) == -1) {
-		perror("waitpid");
 		return false;
 	}
 
