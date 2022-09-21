@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <linux/limits.h>
+#include <limits.h>
 
 #include "string_utils.h"
 #include "token.h"
