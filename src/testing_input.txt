@@ -16,5 +16,9 @@ pwd
 
 cd ..
 
+./show Hello | cat | sort | cat | cat > build/output
+cat build/output
+
+
 ./show END OF TEST CASES
 exit
