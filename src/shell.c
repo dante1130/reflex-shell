@@ -104,10 +104,9 @@ void init_shell(Shell* shell, int argc, char** argv, char** envp) {
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	bool reprompt = false;
 
+	printf("%s ", prompt);
 	do {
 		reprompt = false;
-
-		printf("%s ", prompt);
 		if (fgets(input_buffer, buffer_size, stdin) == NULL) {
 			if (errno == EINTR) {
 				reprompt = true;
@@ -123,7 +122,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 
 void run_sequential(Command* command, Shell* shell, file_descriptors* fds) {
 	if (!file_redirection(command, fds)) {
-		exit_process(fds);
+		return;
 	}
 
 	set_std_file_descriptors(fds);
@@ -165,7 +164,6 @@ void run_external_command(char** cmd_argv, char** envp) {
 bool wait_process(pid_t pid) {
 	int status = 0;
 	if (waitpid(pid, &status, 0) == -1) {
-		perror("waitpid");
 		return false;
 	}
 
@@ -273,7 +271,7 @@ bool file_redirection(Command* command, file_descriptors* fds) {
 	}
 
 	if (command->stdin_file != NULL) {
-		int fd_input = open(command->stdin_file, O_RDONLY | O_CREAT, 0777);
+		int fd_input = open(command->stdin_file, O_RDONLY, 0777);
 		if (fd_input == -1) {
 			printf("Failed to open/create %s for reading...\n",
 			       command->stdin_file);
@@ -283,13 +281,25 @@ bool file_redirection(Command* command, file_descriptors* fds) {
 	}
 
 	if (command->stdout_file != NULL) {
-		int fd_output = open(command->stdout_file, O_WRONLY | O_CREAT, 0777);
-		if (fd_output == -1) {
-			printf("Failed to open/create %s for writing...\n",
-			       command->stdout_file);
-			return false;
+		int fd_output = open(command->stdout_file, O_WRONLY | O_CREAT | O_EXCL, 0777);
+		if (fd_output <= -1) {
+			if(errno == EEXIST) {
+				remove(command->stdout_file);
+				fd_output = open(command->stdout_file, O_WRONLY | O_CREAT, 0777);
+				if(fd_output >= 0) {
+					fds->curr_fd_output = fd_output;
+				} else {
+					printf("Failed to open/create %s for writing...\n", command->stdout_file);
+					return false;
+				}
+			} else {
+				printf("Failed to open/create %s for writing...\n", command->stdout_file);
+				return false;
+			}
+		} else {
+			fds->curr_fd_output = fd_output;
+
 		}
-		fds->curr_fd_output = fd_output;
 	}
 
 	return true;
