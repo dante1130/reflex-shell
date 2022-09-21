@@ -101,10 +101,9 @@ void init_shell(Shell* shell, int argc, char** argv, char** envp) {
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	bool reprompt = false;
 
+	printf("%s ", prompt);
 	do {
 		reprompt = false;
-
-		printf("%s ", prompt);
 		if (fgets(input_buffer, buffer_size, stdin) == NULL) {
 			if (errno == EINTR) {
 				reprompt = true;
