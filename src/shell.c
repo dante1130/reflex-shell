@@ -80,10 +80,10 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			set_current_file_descriptors(&fds);
 			pipe_redirection(&commands[i], &fds);
 
-			if (strcmp(commands[i].separator, "&") == 0) {  // If &
-				run_concurrent(&commands[i], shell, &fds);
-			} else {  // If ; or |
+			if (strcmp(commands[i].separator, ";") == 0) {  // If ;
 				run_sequential(&commands[i], shell, &fds);
+			} else {  // If & or |
+				run_concurrent(&commands[i], shell, &fds);
 			}
 		}
 		// Reset back to terminal
