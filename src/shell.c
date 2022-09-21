@@ -27,6 +27,7 @@ void run_sequential(Command* command, Shell* shell, file_descriptors* fds);
 void run_concurrent(Command* command, Shell* shell, file_descriptors* fds);
 void run_external_command(char** cmd_argv, char** envp);
 bool builtin_command(Command* command, Shell* shell);
+char* get_working_dir(char** envp);
 void pwd_command(char** envp);
 void cd_command(char* directory, char** envp);
 
@@ -248,34 +249,24 @@ void claim_zombies() {
 	}
 }
 
-void pwd_command(char** envp) {
+char* get_working_dir(char** envp) {
 	for (int i = 0; envp[i] != NULL; ++i) {
 		char pwd_key[4];
 		pwd_key[3] = '\0';
 
 		slice_string(pwd_key, envp[i], 0, 3);
 		if (strcmp(pwd_key, "PWD") == 0) {
-			char pwd[1000];
-			slice_string(pwd, envp[i], 4, strlen(envp[i]));
-			printf("%s\n", pwd);
-			break;
+			return strstr(envp[i], "/");
 		}
 	}
+
+	return NULL;
 }
 
+void pwd_command(char** envp) { puts(get_working_dir(envp)); }
+
 void cd_command(char* directory, char** envp) {
-	char pwd[1000];
-
-	for (int i = 0; envp[i] != NULL; ++i) {
-		char pwd_key[4];
-		pwd_key[3] = '\0';
-
-		slice_string(pwd_key, envp[i], 0, 3);
-		if (strcmp(pwd_key, "PWD") == 0) {
-			slice_string(pwd, envp[i], 4, strlen(envp[i]));
-			break;
-		}
-	}
+	strcat(get_working_dir(envp), directory);
 }
 
 bool file_redirection(Command* command, file_descriptors* fds) {
