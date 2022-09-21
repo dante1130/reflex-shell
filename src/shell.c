@@ -26,6 +26,7 @@ void run_concurrent(Command* command, Shell* shell, file_descriptors* fds);
 void run_external_command(Command* command);
 bool builtin_command(Command* command, Shell* shell);
 void pwd_command(char** envp);
+void cd_command(char* directory, char** envp);
 
 // Redirection
 bool file_redirection(Command* command, file_descriptors* fds);
@@ -215,7 +216,11 @@ bool builtin_command(Command* command, Shell* shell) {
 	// cd
 	if (strcmp(command->argv[0], "cd") == 0) {
 		valid_command = true;
-		printf("cd command found...\n");
+		if (command->argv[1] == NULL) {
+			puts("cd: missing argument");
+		} else {
+			cd_command(command->argv[1], shell->envp);
+		}
 	}
 
 	return valid_command;
@@ -242,13 +247,29 @@ void claim_zombies() {
 }
 
 void pwd_command(char** envp) {
-	char pwd_key[4];
-	pwd_key[3] = '\0';
-
 	for (int i = 0; envp[i] != NULL; ++i) {
+		char pwd_key[4];
+		pwd_key[3] = '\0';
+
 		slice_string(pwd_key, envp[i], 0, 3);
 		if (strcmp(pwd_key, "PWD") == 0) {
 			char pwd[1000];
+			slice_string(pwd, envp[i], 4, strlen(envp[i]));
+			printf("%s\n", pwd);
+			break;
+		}
+	}
+}
+
+void cd_command(char* directory, char** envp) {
+	char pwd[1000];
+
+	for (int i = 0; envp[i] != NULL; ++i) {
+		char pwd_key[4];
+		pwd_key[3] = '\0';
+
+		slice_string(pwd_key, envp[i], 0, 3);
+		if (strcmp(pwd_key, "PWD") == 0) {
 			slice_string(pwd, envp[i], 4, strlen(envp[i]));
 			printf("%s\n", pwd);
 			break;
