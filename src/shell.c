@@ -1,5 +1,7 @@
 #include "shell.h"
 
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -23,7 +25,7 @@ void exit_process(file_descriptors* fds);
 // Running commands
 void run_sequential(Command* command, Shell* shell, file_descriptors* fds);
 void run_concurrent(Command* command, Shell* shell, file_descriptors* fds);
-void run_external_command(Command* command);
+void run_external_command(char** cmd_argv, char** envp);
 bool builtin_command(Command* command, Shell* shell);
 void pwd_command(char** envp);
 void cd_command(char* directory, char** envp);
@@ -128,7 +130,7 @@ void run_sequential(Command* command, Shell* shell, file_descriptors* fds) {
 	if (!builtin_command(command, shell)) {
 		pid_t pid = fork();
 		if (pid == 0) {
-			run_external_command(command);
+			run_external_command(command->argv, shell->envp);
 			exit_process(fds);
 		} else {
 			wait_process(pid);
@@ -149,14 +151,14 @@ void run_concurrent(Command* command, Shell* shell, file_descriptors* fds) {
 	set_std_file_descriptors(fds);
 
 	if (!builtin_command(command, shell)) {
-		run_external_command(command);
+		run_external_command(command->argv, shell->envp);
 	}
 
 	exit_process(fds);
 }
 
-void run_external_command(Command* command) {
-	execvp(command->argv[0], command->argv);
+void run_external_command(char** cmd_argv, char** envp) {
+	execvpe(cmd_argv[0], cmd_argv, envp);
 }
 
 bool wait_process(pid_t pid) {
@@ -271,7 +273,6 @@ void cd_command(char* directory, char** envp) {
 		slice_string(pwd_key, envp[i], 0, 3);
 		if (strcmp(pwd_key, "PWD") == 0) {
 			slice_string(pwd, envp[i], 4, strlen(envp[i]));
-			printf("%s\n", pwd);
 			break;
 		}
 	}
