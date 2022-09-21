@@ -13,18 +13,25 @@
 #include "string_utils.h"
 #include "token.h"
 #include "command.h"
+#include "file_descriptor_helper.h"
 
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
+void exit_process(struct file_descriptors* fds);
 
 // Running commands
-void handle_commands(Shell* shell, Command* commands, int command_size);
-void run_command(Command* command);
-bool builtin_command(Command* command, char** envp, Shell* shell);
+void run_sequential(Command* c, char** envp, Shell* shell,
+                    struct file_descriptors* fds);
+void run_concurrent(Command* c, char** envp, Shell* shell,
+                    struct file_descriptors* fds);
+void run_external_command(Command* c);
+bool builtin_command(Command* c, char** envp, Shell* shell);
 void pwd_command(char** envp);
-void cd_command(char** envp, char* path);
-bool file_redirection(Command* command);
+
+// Redirection
+bool file_redirection(Command* c, struct file_descriptors* fds);
+void pipe_redirection(Command* c, struct file_descriptors* fds);
 
 // Signals
 void sig_init();
@@ -37,32 +44,54 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_shell(shell, argc, argv, envp);
 	sig_init();
 
+	struct file_descriptors fds;
+	init_file_descriptors(&fds);
+
 	do {
 		const size_t buffer_size = 256;
 		char input_buffer[buffer_size];
 
+		// Get command input
 		if (!prompt_input(shell->prompt, input_buffer, buffer_size)) {
 			continue;
 		}
 
-		if (strcmp("exit", input_buffer) != 0) {
-			const size_t max_tokens = 128;
-			char* tokens[max_tokens];
-
-			Command commands[max_tokens];
-
-			tokenise(tokens, input_buffer, " ");
-			const int command_size = tokenise_commands(commands, tokens);
-
-			handle_commands(shell, commands, command_size);
-		} else {
+		// If exit quit
+		if (strcmp("exit", input_buffer) == 0) {
 			shell->terminate = true;
+			free(shell->prompt);
+			continue;
 		}
+
+		// Run commands
+		const size_t max_tokens = 128;
+		char* tokens[max_tokens];
+
+		Command commands[max_tokens];
+
+		tokenise(tokens, input_buffer, " ");
+		const int command_size = tokenise_commands(commands, tokens);
+
+		for (int i = 0; i < command_size; ++i) {
+			set_current_file_descriptors(
+			    &fds);  // Reset back to terminal and sets current & next file
+			            // desciptors
+			pipe_redirection(&commands[i], &fds);
+
+			if (strcmp(commands[i].separator, "&") == 0) {  // If &
+				run_concurrent(&commands[i], envp, shell, &fds);
+			} else {  // If ; or |
+				run_sequential(&commands[i], envp, shell, &fds);
+			}
+		}
+		reset_file_descriptors(&fds);  // Reset back to terminal
+
 	} while (!shell->terminate);
 }
 
 void init_shell(Shell* shell, int argc, char** argv, char** envp) {
-	shell->prompt = "> ";
+	shell->prompt = malloc(sizeof(char));
+	shell->prompt[0] = '>';
 	shell->terminate = false;
 	shell->argc = argc;
 	shell->argv = argv;
@@ -75,7 +104,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	do {
 		reprompt = false;
 
-		printf("%s", prompt);
+		printf("%s ", prompt);
 		if (fgets(input_buffer, buffer_size, stdin) == NULL) {
 			if (errno == EINTR) {
 				reprompt = true;
@@ -89,27 +118,46 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void handle_commands(Shell* shell, Command* commands, int command_size) {
-	for (int i = 0; i < command_size; ++i) {
+void run_sequential(Command* c, char** envp, Shell* shell,
+                    struct file_descriptors* fds) {
+	if (!file_redirection(c, fds)) {
+		exit_process(fds);
+	}
+
+	set_std_file_descriptors(fds);
+
+	if (!builtin_command(c, envp, shell)) {
 		pid_t pid = fork();
 		if (pid == 0) {
-			if (!file_redirection(&commands[i])) {
-				continue;
-			}
-
-			if (!builtin_command(&commands[i], shell->envp, shell)) {
-				run_command(&commands[i]);
-			}
-			exit(1);
-		} else if (strcmp(commands[i].separator, ";") == 0) {
+			run_external_command(c);
+			exit_process(fds);
+		} else {
 			wait_process(pid);
-		} else if (strcmp(commands[i].separator, "&") == 0) {
-			continue;
 		}
 	}
 }
 
-void run_command(Command* command) { execvp(command->argv[0], command->argv); }
+void run_concurrent(Command* c, char** envp, Shell* shell,
+                    struct file_descriptors* fds) {
+	pid_t pid = fork();
+	if (pid != 0) {
+		return;
+	}
+
+	if (!file_redirection(c, fds)) {
+		exit_process(fds);
+	}
+
+	set_std_file_descriptors(fds);
+
+	if (!builtin_command(c, envp, shell)) {
+		run_external_command(c);
+	}
+
+	exit_process(fds);
+}
+
+void run_external_command(Command* c) { execvp(c->argv[0], c->argv); }
 
 bool wait_process(pid_t pid) {
 	int status = 0;
@@ -131,6 +179,7 @@ void sig_init() {
 	sigaction(SIGINT, &act_catch, NULL);
 	sigaction(SIGQUIT, &act_catch, NULL);
 	sigaction(SIGTSTP, &act_catch, NULL);
+	sigaction(SIGCHLD, &act_catch, NULL);
 
 	// Ignore signals
 	act_ignore.sa_flags = 0;
@@ -139,31 +188,33 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
-bool builtin_command(Command* command, char** envp, Shell* shell) {
+bool builtin_command(Command* c, char** envp, Shell* shell) {
 	bool valid_command = false;
 
-	if (command->argv[0] == NULL) {
+	if (c->argv[0] == NULL) {
 		return false;
 	}
 
 	// prompt
-	if (strcmp(command->argv[0], "prompt") == 0) {
+	if (strcmp(c->argv[0], "prompt") == 0) {
 		valid_command = true;
-		printf("prompt command found... NOT IMPLEMENTED YET\n");
-		if (command->argv[1] == NULL) {
+		if (c->argv[1] == NULL) {
 			return false;
 		}
-		shell->prompt = command->argv[1];
+		if (shell->prompt != NULL) {
+			free(shell->prompt);
+		}
+		shell->prompt = strdup(c->argv[1]);
 	}
 
 	// pwd
-	if (strcmp(command->argv[0], "pwd") == 0) {
+	if (strcmp(c->argv[0], "pwd") == 0) {
 		valid_command = true;
 		pwd_command(envp);
 	}
 
 	// cd
-	if (strcmp(command->argv[0], "cd") == 0) {
+	if (strcmp(c->argv[0], "cd") == 0) {
 		valid_command = true;
 		printf("cd command found...\n");
 	}
@@ -181,11 +232,10 @@ void catch_sig(int signo) {
 
 void claim_zombies() {
 	bool more = true;
-	pid_t pid;
-	int status;
 
 	while (more) {
-		pid = waitpid(-1, &status, WNOHANG);
+		int status;
+		pid_t pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0) {
 			more = false;
 		}
@@ -196,8 +246,8 @@ void pwd_command(char** envp) {
 	char pwd_key[4];
 	pwd_key[3] = '\0';
 
-	for (int i = 0; envp[i] != NULL; ++i) {
-		slice_string(pwd_key, envp[i], 0, 3);
+	for (int count = 0; envp[count] != NULL; ++count) {
+		slice_string(pwd_key, envp[count], 0, 3);
 		if (strcmp(pwd_key, "PWD") == 0) {
 			char pwd[1000];
 			slice_string(pwd, envp[i], 4, strlen(envp[i]));
@@ -207,35 +257,50 @@ void pwd_command(char** envp) {
 	}
 }
 
-void cd_command(char** envp, char* path) {}
-
-bool file_redirection(Command* command) {
-	if (command->stdin_file != NULL && command->stdout_file != NULL) {
-		if (strcmp(command->stdin_file, command->stdout_file) == 0) {
+bool file_redirection(Command* c, struct file_descriptors* fds) {
+	if (c->stdin_file != NULL && c->stdout_file != NULL) {
+		if (strcmp(c->stdin_file, c->stdout_file) == 0) {
 			printf("Invalid redirection: input file is output file\n");
 			return false;
 		}
 	}
 
-	if (command->stdin_file != NULL) {
-		int fd_input = open(command->stdin_file, O_RDONLY | O_CREAT, 0777);
+	if (c->stdin_file != NULL) {
+		int fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
 		if (fd_input == -1) {
-			printf("Failed to open/create %s for reading...\n",
-			       command->stdin_file);
+			printf("Failed to open/create %s for reading...\n", c->stdin_file);
 			return false;
 		}
-		dup2(fd_input, STDIN_FILENO);
+		fds->curr_fd_input = fd_input;
 	}
 
-	if (command->stdout_file != NULL) {
-		int fd_output = open(command->stdout_file, O_WRONLY | O_CREAT, 0777);
+	if (c->stdout_file != NULL) {
+		int fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
 		if (fd_output == -1) {
-			printf("Failed to open/create %s for writing...\n",
-			       command->stdout_file);
+			printf("Failed to open/create %s for writing...\n", c->stdout_file);
 			return false;
 		}
-		dup2(fd_output, STDOUT_FILENO);
+		fds->curr_fd_output = fd_output;
 	}
 
 	return true;
+}
+
+void pipe_redirection(Command* c, struct file_descriptors* fds) {
+	// If this command has | seperator
+	if (strcmp(c->separator, "|") == 0) {
+		int p[2];
+		if (pipe(p) < 0) {
+			perror("Pipe call");
+			fds->curr_fd_input = dup(fds->std_fd_input);
+			fds->curr_fd_output = dup(fds->std_fd_output);
+		}
+		fds->next_fd_input = p[0];
+		fds->curr_fd_output = p[1];
+	}
+}
+
+void exit_process(struct file_descriptors* fds) {
+	close_file_descriptors(fds);
+	exit(0);
 }

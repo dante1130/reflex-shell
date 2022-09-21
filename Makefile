@@ -5,7 +5,7 @@ TARGET_EXEC := reflex
 
 BUILD_DIR := ./build
 
-SRC_FILES := src/main.c src/token.c src/command.c src/string_utils.c src/shell.c
+SRC_FILES := src/main.c src/token.c src/command.c src/string_utils.c src/shell.c src/file_descriptor_helper.c
 
 OBJ_FILES := $(SRC_FILES:%=$(BUILD_DIR)/%.o)
 
@@ -27,6 +27,6 @@ test:
 	make
 	./build/reflex < src/testing_input.txt
 
-test_whole_INVALID:
+test_whole:
 	make
 	./build/reflex < src/Test-Cases.txt
