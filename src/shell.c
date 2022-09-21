@@ -179,6 +179,7 @@ void sig_init() {
 	sigaction(SIGINT, &act_catch, NULL);
 	sigaction(SIGQUIT, &act_catch, NULL);
 	sigaction(SIGTSTP, &act_catch, NULL);
+	sigaction(SIGCHLD, &act_catch, NULL);
 
 	// Ignore signals
 	act_ignore.sa_flags = 0;
@@ -257,8 +258,6 @@ void pwd_command(char** envp) {
 }
 
 bool file_redirection(Command* c, struct file_descriptors* fds) {
-	int fd_input, fd_output;
-
 	if (c->stdin_file != NULL && c->stdout_file != NULL) {
 		if (strcmp(c->stdin_file, c->stdout_file) == 0) {
 			printf("Invalid redirection: input file is output file\n");
@@ -267,7 +266,7 @@ bool file_redirection(Command* c, struct file_descriptors* fds) {
 	}
 
 	if (c->stdin_file != NULL) {
-		fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
+		int fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
 		if (fd_input == -1) {
 			printf("Failed to open/create %s for reading...\n", c->stdin_file);
 			return false;
@@ -276,7 +275,7 @@ bool file_redirection(Command* c, struct file_descriptors* fds) {
 	}
 
 	if (c->stdout_file != NULL) {
-		fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
+		int fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
 		if (fd_output == -1) {
 			printf("Failed to open/create %s for writing...\n", c->stdout_file);
 			return false;
