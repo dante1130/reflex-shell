@@ -21,15 +21,15 @@ bool wait_process(pid_t pid);
 void exit_process(file_descriptors* fds);
 
 // Running commands
-void run_sequential(Command* c, Shell* shell, file_descriptors* fds);
-void run_concurrent(Command* c, Shell* shell, file_descriptors* fds);
-void run_external_command(Command* c);
-bool builtin_command(Command* c, Shell* shell);
+void run_sequential(Command* command, Shell* shell, file_descriptors* fds);
+void run_concurrent(Command* command, Shell* shell, file_descriptors* fds);
+void run_external_command(Command* command);
+bool builtin_command(Command* command, Shell* shell);
 void pwd_command(char** envp);
 
 // Redirection
-bool file_redirection(Command* c, file_descriptors* fds);
-void pipe_redirection(Command* c, file_descriptors* fds);
+bool file_redirection(Command* command, file_descriptors* fds);
+void pipe_redirection(Command* command, file_descriptors* fds);
 
 // Signals
 void sig_init();
@@ -117,17 +117,17 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void run_sequential(Command* c, Shell* shell, file_descriptors* fds) {
-	if (!file_redirection(c, fds)) {
+void run_sequential(Command* command, Shell* shell, file_descriptors* fds) {
+	if (!file_redirection(command, fds)) {
 		exit_process(fds);
 	}
 
 	set_std_file_descriptors(fds);
 
-	if (!builtin_command(c, shell)) {
+	if (!builtin_command(command, shell)) {
 		pid_t pid = fork();
 		if (pid == 0) {
-			run_external_command(c);
+			run_external_command(command);
 			exit_process(fds);
 		} else {
 			wait_process(pid);
@@ -135,26 +135,28 @@ void run_sequential(Command* c, Shell* shell, file_descriptors* fds) {
 	}
 }
 
-void run_concurrent(Command* c, Shell* shell, file_descriptors* fds) {
+void run_concurrent(Command* command, Shell* shell, file_descriptors* fds) {
 	pid_t pid = fork();
 	if (pid != 0) {
 		return;
 	}
 
-	if (!file_redirection(c, fds)) {
+	if (!file_redirection(command, fds)) {
 		exit_process(fds);
 	}
 
 	set_std_file_descriptors(fds);
 
-	if (!builtin_command(c, shell)) {
-		run_external_command(c);
+	if (!builtin_command(command, shell)) {
+		run_external_command(command);
 	}
 
 	exit_process(fds);
 }
 
-void run_external_command(Command* c) { execvp(c->argv[0], c->argv); }
+void run_external_command(Command* command) {
+	execvp(command->argv[0], command->argv);
+}
 
 bool wait_process(pid_t pid) {
 	int status = 0;
@@ -185,33 +187,33 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
-bool builtin_command(Command* c, Shell* shell) {
+bool builtin_command(Command* command, Shell* shell) {
 	bool valid_command = false;
 
-	if (c->argv[0] == NULL) {
+	if (command->argv[0] == NULL) {
 		return false;
 	}
 
 	// prompt
-	if (strcmp(c->argv[0], "prompt") == 0) {
+	if (strcmp(command->argv[0], "prompt") == 0) {
 		valid_command = true;
-		if (c->argv[1] == NULL) {
+		if (command->argv[1] == NULL) {
 			return false;
 		}
 		if (shell->prompt != NULL) {
 			free(shell->prompt);
 		}
-		shell->prompt = strdup(c->argv[1]);
+		shell->prompt = strdup(command->argv[1]);
 	}
 
 	// pwd
-	if (strcmp(c->argv[0], "pwd") == 0) {
+	if (strcmp(command->argv[0], "pwd") == 0) {
 		valid_command = true;
 		pwd_command(shell->envp);
 	}
 
 	// cd
-	if (strcmp(c->argv[0], "cd") == 0) {
+	if (strcmp(command->argv[0], "cd") == 0) {
 		valid_command = true;
 		printf("cd command found...\n");
 	}
@@ -254,27 +256,29 @@ void pwd_command(char** envp) {
 	}
 }
 
-bool file_redirection(Command* c, file_descriptors* fds) {
-	if (c->stdin_file != NULL && c->stdout_file != NULL) {
-		if (strcmp(c->stdin_file, c->stdout_file) == 0) {
+bool file_redirection(Command* command, file_descriptors* fds) {
+	if (command->stdin_file != NULL && command->stdout_file != NULL) {
+		if (strcmp(command->stdin_file, command->stdout_file) == 0) {
 			printf("Invalid redirection: input file is output file\n");
 			return false;
 		}
 	}
 
-	if (c->stdin_file != NULL) {
-		int fd_input = open(c->stdin_file, O_RDONLY | O_CREAT, 0777);
+	if (command->stdin_file != NULL) {
+		int fd_input = open(command->stdin_file, O_RDONLY | O_CREAT, 0777);
 		if (fd_input == -1) {
-			printf("Failed to open/create %s for reading...\n", c->stdin_file);
+			printf("Failed to open/create %s for reading...\n",
+			       command->stdin_file);
 			return false;
 		}
 		fds->curr_fd_input = fd_input;
 	}
 
-	if (c->stdout_file != NULL) {
-		int fd_output = open(c->stdout_file, O_WRONLY | O_CREAT, 0777);
+	if (command->stdout_file != NULL) {
+		int fd_output = open(command->stdout_file, O_WRONLY | O_CREAT, 0777);
 		if (fd_output == -1) {
-			printf("Failed to open/create %s for writing...\n", c->stdout_file);
+			printf("Failed to open/create %s for writing...\n",
+			       command->stdout_file);
 			return false;
 		}
 		fds->curr_fd_output = fd_output;
@@ -283,9 +287,9 @@ bool file_redirection(Command* c, file_descriptors* fds) {
 	return true;
 }
 
-void pipe_redirection(Command* c, file_descriptors* fds) {
+void pipe_redirection(Command* command, file_descriptors* fds) {
 	// If this command has | seperator
-	if (strcmp(c->separator, "|") == 0) {
+	if (strcmp(command->separator, "|") == 0) {
 		int p[2];
 		if (pipe(p) < 0) {
 			perror("Pipe call");
