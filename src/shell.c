@@ -220,7 +220,7 @@ bool builtin_command(Command* command, Shell* shell) {
 	if (strcmp(command->argv[0], "cd") == 0) {
 		valid_command = true;
 		if (command->argv[1] == NULL) {
-			puts("cd: missing argument");
+			cd_command(getenv("HOME"));
 		} else {
 			cd_command(command->argv[1]);
 		}
