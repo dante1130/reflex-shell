@@ -230,8 +230,6 @@ bool builtin_command(Command* command, Shell* shell) {
 void catch_sig(int signo) {
 	if (signo == SIGCHLD) {
 		claim_zombies();
-	} else {
-		printf("\n");
 	}
 }
 
