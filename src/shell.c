@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <limits.h>
+#include <glob.h>
 
 #include "string_utils.h"
 #include "token.h"
@@ -22,6 +23,10 @@ void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
 void exit_process(file_descriptors* fds);
+
+// Globbing command line arguments
+void glob_command_argv(Command* command);
+void free_command_argv(Command* command);
 
 // Running commands
 void run_sequential(Command* command, Shell* shell, file_descriptors* fds);
@@ -80,6 +85,8 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			set_current_file_descriptors(&fds);
 			pipe_redirection(&commands[i], &fds);
 
+			glob_command_argv(&commands[i]);
+
 			if (strcmp(commands[i].separator, ";") == 0) {  // If ;
 				run_sequential(&commands[i], shell, &fds);
 			} else {  // If & or |
@@ -88,6 +95,12 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 		}
 		// Reset back to terminal
 		reset_file_descriptors(&fds);
+
+		for (int i = 0; i < command_size; ++i) {
+			for (int j = 1; commands[i].argv[j] != NULL; ++j) {
+				free(commands[i].argv[j]);
+			}
+		}
 
 	} while (!shell->terminate);
 }
@@ -118,6 +131,32 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	} while (reprompt);
 
 	return true;
+}
+
+void glob_command_argv(Command* command) {
+	char* argv[1000];
+	size_t argv_size = 0;
+
+	for (size_t i = 1; command->argv[i] != NULL; ++i) {
+		glob_t glob_result;
+
+		if (strstr(command->argv[i], "*") == NULL) {
+			argv[argv_size++] = strdup(command->argv[i]);
+			continue;
+		}
+
+		glob(command->argv[i], 0, NULL, &glob_result);
+
+		for (size_t j = 0; j < glob_result.gl_pathc; ++j) {
+			argv[argv_size++] = strdup(glob_result.gl_pathv[j]);
+		}
+	}
+
+	for (size_t i = 0; i < argv_size; ++i) {
+		command->argv[i + 1] = argv[i];
+	}
+
+	command->argv[argv_size + 1] = NULL;
 }
 
 void run_sequential(Command* command, Shell* shell, file_descriptors* fds) {
@@ -281,24 +320,27 @@ bool file_redirection(Command* command, file_descriptors* fds) {
 	}
 
 	if (command->stdout_file != NULL) {
-		int fd_output = open(command->stdout_file, O_WRONLY | O_CREAT | O_EXCL, 0777);
+		int fd_output =
+		    open(command->stdout_file, O_WRONLY | O_CREAT | O_EXCL, 0777);
 		if (fd_output <= -1) {
-			if(errno == EEXIST) {
+			if (errno == EEXIST) {
 				remove(command->stdout_file);
-				fd_output = open(command->stdout_file, O_WRONLY | O_CREAT, 0777);
-				if(fd_output >= 0) {
+				fd_output =
+				    open(command->stdout_file, O_WRONLY | O_CREAT, 0777);
+				if (fd_output >= 0) {
 					fds->curr_fd_output = fd_output;
 				} else {
-					printf("Failed to open/create %s for writing...\n", command->stdout_file);
+					printf("Failed to open/create %s for writing...\n",
+					       command->stdout_file);
 					return false;
 				}
 			} else {
-				printf("Failed to open/create %s for writing...\n", command->stdout_file);
+				printf("Failed to open/create %s for writing...\n",
+				       command->stdout_file);
 				return false;
 			}
 		} else {
 			fds->curr_fd_output = fd_output;
-
 		}
 	}
 
