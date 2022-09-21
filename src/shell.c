@@ -18,18 +18,18 @@
 void init_shell(Shell* shell, int argc, char** argv, char** envp);
 bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size);
 bool wait_process(pid_t pid);
-void exit_process(struct file_descriptors* fds);
+void exit_process(file_descriptors* fds);
 
 // Running commands
-void run_sequential(Command* c, Shell* shell, struct file_descriptors* fds);
-void run_concurrent(Command* c, Shell* shell, struct file_descriptors* fds);
+void run_sequential(Command* c, Shell* shell, file_descriptors* fds);
+void run_concurrent(Command* c, Shell* shell, file_descriptors* fds);
 void run_external_command(Command* c);
 bool builtin_command(Command* c, Shell* shell);
 void pwd_command(char** envp);
 
 // Redirection
-bool file_redirection(Command* c, struct file_descriptors* fds);
-void pipe_redirection(Command* c, struct file_descriptors* fds);
+bool file_redirection(Command* c, file_descriptors* fds);
+void pipe_redirection(Command* c, file_descriptors* fds);
 
 // Signals
 void sig_init();
@@ -42,7 +42,7 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_shell(shell, argc, argv, envp);
 	sig_init();
 
-	struct file_descriptors fds;
+	file_descriptors fds;
 	init_file_descriptors(&fds);
 
 	do {
@@ -117,7 +117,7 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void run_sequential(Command* c, Shell* shell, struct file_descriptors* fds) {
+void run_sequential(Command* c, Shell* shell, file_descriptors* fds) {
 	if (!file_redirection(c, fds)) {
 		exit_process(fds);
 	}
@@ -135,7 +135,7 @@ void run_sequential(Command* c, Shell* shell, struct file_descriptors* fds) {
 	}
 }
 
-void run_concurrent(Command* c, Shell* shell, struct file_descriptors* fds) {
+void run_concurrent(Command* c, Shell* shell, file_descriptors* fds) {
 	pid_t pid = fork();
 	if (pid != 0) {
 		return;
@@ -254,7 +254,7 @@ void pwd_command(char** envp) {
 	}
 }
 
-bool file_redirection(Command* c, struct file_descriptors* fds) {
+bool file_redirection(Command* c, file_descriptors* fds) {
 	if (c->stdin_file != NULL && c->stdout_file != NULL) {
 		if (strcmp(c->stdin_file, c->stdout_file) == 0) {
 			printf("Invalid redirection: input file is output file\n");
@@ -283,7 +283,7 @@ bool file_redirection(Command* c, struct file_descriptors* fds) {
 	return true;
 }
 
-void pipe_redirection(Command* c, struct file_descriptors* fds) {
+void pipe_redirection(Command* c, file_descriptors* fds) {
 	// If this command has | seperator
 	if (strcmp(c->separator, "|") == 0) {
 		int p[2];
@@ -297,7 +297,7 @@ void pipe_redirection(Command* c, struct file_descriptors* fds) {
 	}
 }
 
-void exit_process(struct file_descriptors* fds) {
+void exit_process(file_descriptors* fds) {
 	close_file_descriptors(fds);
 	exit(0);
 }
