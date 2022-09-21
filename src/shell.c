@@ -21,12 +21,10 @@ bool wait_process(pid_t pid);
 void exit_process(struct file_descriptors* fds);
 
 // Running commands
-void run_sequential(Command* c, char** envp, Shell* shell,
-                    struct file_descriptors* fds);
-void run_concurrent(Command* c, char** envp, Shell* shell,
-                    struct file_descriptors* fds);
+void run_sequential(Command* c, Shell* shell, struct file_descriptors* fds);
+void run_concurrent(Command* c, Shell* shell, struct file_descriptors* fds);
 void run_external_command(Command* c);
-bool builtin_command(Command* c, char** envp, Shell* shell);
+bool builtin_command(Command* c, Shell* shell);
 void pwd_command(char** envp);
 
 // Redirection
@@ -73,18 +71,19 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 		const int command_size = tokenise_commands(commands, tokens);
 
 		for (int i = 0; i < command_size; ++i) {
-			set_current_file_descriptors(
-			    &fds);  // Reset back to terminal and sets current & next file
-			            // desciptors
+			// Reset back to terminal and sets current & next file
+			// descriptors
+			set_current_file_descriptors(&fds);
 			pipe_redirection(&commands[i], &fds);
 
 			if (strcmp(commands[i].separator, "&") == 0) {  // If &
-				run_concurrent(&commands[i], envp, shell, &fds);
+				run_concurrent(&commands[i], shell, &fds);
 			} else {  // If ; or |
-				run_sequential(&commands[i], envp, shell, &fds);
+				run_sequential(&commands[i], shell, &fds);
 			}
 		}
-		reset_file_descriptors(&fds);  // Reset back to terminal
+		// Reset back to terminal
+		reset_file_descriptors(&fds);
 
 	} while (!shell->terminate);
 }
@@ -118,15 +117,14 @@ bool prompt_input(const char* prompt, char* input_buffer, size_t buffer_size) {
 	return true;
 }
 
-void run_sequential(Command* c, char** envp, Shell* shell,
-                    struct file_descriptors* fds) {
+void run_sequential(Command* c, Shell* shell, struct file_descriptors* fds) {
 	if (!file_redirection(c, fds)) {
 		exit_process(fds);
 	}
 
 	set_std_file_descriptors(fds);
 
-	if (!builtin_command(c, envp, shell)) {
+	if (!builtin_command(c, shell)) {
 		pid_t pid = fork();
 		if (pid == 0) {
 			run_external_command(c);
@@ -137,8 +135,7 @@ void run_sequential(Command* c, char** envp, Shell* shell,
 	}
 }
 
-void run_concurrent(Command* c, char** envp, Shell* shell,
-                    struct file_descriptors* fds) {
+void run_concurrent(Command* c, Shell* shell, struct file_descriptors* fds) {
 	pid_t pid = fork();
 	if (pid != 0) {
 		return;
@@ -150,7 +147,7 @@ void run_concurrent(Command* c, char** envp, Shell* shell,
 
 	set_std_file_descriptors(fds);
 
-	if (!builtin_command(c, envp, shell)) {
+	if (!builtin_command(c, shell)) {
 		run_external_command(c);
 	}
 
@@ -188,7 +185,7 @@ void sig_init() {
 	// sigaction(SIGALRM, &act_ignore, NULL);
 }
 
-bool builtin_command(Command* c, char** envp, Shell* shell) {
+bool builtin_command(Command* c, Shell* shell) {
 	bool valid_command = false;
 
 	if (c->argv[0] == NULL) {
@@ -210,7 +207,7 @@ bool builtin_command(Command* c, char** envp, Shell* shell) {
 	// pwd
 	if (strcmp(c->argv[0], "pwd") == 0) {
 		valid_command = true;
-		pwd_command(envp);
+		pwd_command(shell->envp);
 	}
 
 	// cd
@@ -246,8 +243,8 @@ void pwd_command(char** envp) {
 	char pwd_key[4];
 	pwd_key[3] = '\0';
 
-	for (int count = 0; envp[count] != NULL; ++count) {
-		slice_string(pwd_key, envp[count], 0, 3);
+	for (int i = 0; envp[i] != NULL; ++i) {
+		slice_string(pwd_key, envp[i], 0, 3);
 		if (strcmp(pwd_key, "PWD") == 0) {
 			char pwd[1000];
 			slice_string(pwd, envp[i], 4, strlen(envp[i]));
