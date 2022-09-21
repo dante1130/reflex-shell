@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <linux/limits.h>
 
 #include "string_utils.h"
 #include "token.h"
@@ -27,9 +28,8 @@ void run_sequential(Command* command, Shell* shell, file_descriptors* fds);
 void run_concurrent(Command* command, Shell* shell, file_descriptors* fds);
 void run_external_command(char** cmd_argv, char** envp);
 bool builtin_command(Command* command, Shell* shell);
-char* get_working_dir(char** envp);
-void pwd_command(char** envp);
-void cd_command(char* directory, char** envp);
+void pwd_command();
+void cd_command(char* directory);
 
 // Redirection
 bool file_redirection(Command* command, file_descriptors* fds);
@@ -213,7 +213,7 @@ bool builtin_command(Command* command, Shell* shell) {
 	// pwd
 	if (strcmp(command->argv[0], "pwd") == 0) {
 		valid_command = true;
-		pwd_command(shell->envp);
+		pwd_command();
 	}
 
 	// cd
@@ -222,7 +222,7 @@ bool builtin_command(Command* command, Shell* shell) {
 		if (command->argv[1] == NULL) {
 			puts("cd: missing argument");
 		} else {
-			cd_command(command->argv[1], shell->envp);
+			cd_command(command->argv[1]);
 		}
 	}
 
@@ -249,24 +249,19 @@ void claim_zombies() {
 	}
 }
 
-char* get_working_dir(char** envp) {
-	for (int i = 0; envp[i] != NULL; ++i) {
-		char pwd_key[4];
-		pwd_key[3] = '\0';
-
-		slice_string(pwd_key, envp[i], 0, 3);
-		if (strcmp(pwd_key, "PWD") == 0) {
-			return strstr(envp[i], "/");
-		}
+void pwd_command() {
+	char cwd[PATH_MAX];
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		puts(cwd);
+	} else {
+		perror("getcwd");
 	}
-
-	return NULL;
 }
 
-void pwd_command(char** envp) { puts(get_working_dir(envp)); }
-
-void cd_command(char* directory, char** envp) {
-	strcat(get_working_dir(envp), directory);
+void cd_command(char* directory) {
+	if (chdir(directory) != 0) {
+		perror("chdir");
+	}
 }
 
 bool file_redirection(Command* command, file_descriptors* fds) {
