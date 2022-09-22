@@ -133,7 +133,7 @@ void glob_command_argv(Command* command) {
 
 	for (size_t i = 1; command->argv[i] != NULL; ++i) {
 		glob_t glob_result;
-
+	
 		if (strstr(command->argv[i], "*") == NULL &&
 		    strstr(command->argv[i], "?") == NULL &&
 		    strstr(command->argv[i], "[") == NULL &&
@@ -148,6 +148,8 @@ void glob_command_argv(Command* command) {
 			argv[argv_size++] = strdup(glob_result.gl_pathv[j]);
 		}
 	}
+
+	command->argv = realloc(command->argv, sizeof(char*) * (argv_size + 2));
 
 	for (size_t i = 0; i < argv_size; ++i) {
 		command->argv[i + 1] = strdup(argv[i]);
@@ -164,6 +166,10 @@ void run_sequential(Command* command, Shell* shell, file_descriptors* fds) {
 	set_std_file_descriptors(fds);
 
 	if (!builtin_command(command, shell)) {
+		sigset_t sigs;
+		sigemptyset(&sigs);
+		sigaddset(&sigs, SIGCHLD);
+		sigprocmask(SIG_SETMASK, &sigs, NULL);
 		pid_t pid = fork();
 		if (pid == 0) {
 			run_external_command(command->argv, shell->envp);
@@ -171,6 +177,7 @@ void run_sequential(Command* command, Shell* shell, file_descriptors* fds) {
 		} else {
 			wait_process(pid);
 		}
+		sigprocmask(SIG_UNBLOCK, &sigs, NULL);
 	}
 }
 
