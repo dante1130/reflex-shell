@@ -18,11 +18,7 @@ $(BUILD_DIR)/%.c.o: %.c
 
 clean:
 	rm -r $(BUILD_DIR)
-
-run:
-	make
-	./build/reflex
-
+	
 test:
 	make
 	./build/reflex < src/testing_input.txt

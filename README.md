@@ -8,6 +8,7 @@ A custom shell program written in C for the Linux operating system.
 	- [Table of Contents](#table-of-contents)
 	- [Cloning the repository](#cloning-the-repository)
 	- [Building and Running](#building-and-running)
+		- [Running tests](#running-tests)
 	- [Contributing](#contributing)
 
 ## Cloning the repository
@@ -24,6 +25,13 @@ make
 
 ```bash
 ./build/reflex
+```
+
+### Running tests
+
+```bash
+make test
+make test_whole 
 ```
 
 ## Contributing
