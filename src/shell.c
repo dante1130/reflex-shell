@@ -149,6 +149,8 @@ void glob_command_argv(Command* command) {
 		}
 	}
 
+	command->argv = realloc(command->argv, sizeof(char*) * (argv_size + 2));
+
 	for (size_t i = 0; i < argv_size; ++i) {
 		command->argv[i + 1] = strdup(argv[i]);
 	}
