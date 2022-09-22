@@ -306,7 +306,8 @@ bool file_redirection(Command* command, file_descriptors* fds) {
 	if (command->stdin_file != NULL) {
 		int fd_input = open(command->stdin_file, O_RDONLY, 0777);
 		if (fd_input == -1) {
-			printf("Failed to open %s for reading...\n", command->stdin_file);
+			printf("File %s:\n", command->stdin_file);
+			perror("Read open");
 			return false;
 		}
 		fds->curr_fd_input = fd_input;
@@ -323,13 +324,13 @@ bool file_redirection(Command* command, file_descriptors* fds) {
 				if (fd_output >= 0) {
 					fds->curr_fd_output = fd_output;
 				} else {
-					printf("Failed to open/create %s for writing...\n",
-					       command->stdout_file);
+					printf("File %s:\n", command->stdout_file);
+					perror("Write open");
 					return false;
 				}
 			} else {
-				printf("Failed to open/create %s for writing...\n",
-				       command->stdout_file);
+				printf("File %s:\n", command->stdout_file);
+				perror("Write open");
 				return false;
 			}
 		} else {
