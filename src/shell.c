@@ -91,6 +91,9 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			} else {  // If & or |
 				run_concurrent(&commands[i], shell, &fds);
 			}
+
+			free(commands[i].argv);
+			commands[i].argv = NULL;
 		}
 		// Reset back to terminal
 		reset_file_descriptors(&fds);
