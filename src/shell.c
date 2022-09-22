@@ -91,9 +91,6 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 			} else {  // If & or |
 				run_concurrent(&commands[i], shell, &fds);
 			}
-
-			free(commands[i].argv);
-			commands[i].argv = NULL;
 		}
 		// Reset back to terminal
 		reset_file_descriptors(&fds);
@@ -147,7 +144,7 @@ void glob_command_argv(Command* command) {
 		glob(command->argv[i], 0, NULL, &glob_result);
 
 		for (size_t j = 0; j < glob_result.gl_pathc; ++j) {
-			argv[argv_size++] = glob_result.gl_pathv[j];
+			argv[argv_size++] = strdup(glob_result.gl_pathv[j]);
 		}
 	}
 
@@ -309,8 +306,7 @@ bool file_redirection(Command* command, file_descriptors* fds) {
 	if (command->stdin_file != NULL) {
 		int fd_input = open(command->stdin_file, O_RDONLY, 0777);
 		if (fd_input == -1) {
-			printf("Failed to open %s for reading...\n",
-			       command->stdin_file);
+			printf("Failed to open %s for reading...\n", command->stdin_file);
 			return false;
 		}
 		fds->curr_fd_input = fd_input;
