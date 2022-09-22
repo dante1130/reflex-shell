@@ -54,7 +54,7 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 	init_file_descriptors(&fds);
 
 	do {
-		const size_t buffer_size = 256;
+		const size_t buffer_size = 4096;
 		char input_buffer[buffer_size];
 
 		// Get command input
@@ -70,10 +70,11 @@ void run_shell(Shell* shell, int argc, char** argv, char** envp) {
 		}
 
 		// Run commands
-		const size_t max_tokens = 128;
+		const size_t max_tokens = 1024;
+		const size_t max_commands = 128;
 		char* tokens[max_tokens];
 
-		Command commands[max_tokens];
+		Command commands[max_commands];
 
 		tokenise(tokens, input_buffer, " ");
 		const int command_size = tokenise_commands(commands, tokens);
