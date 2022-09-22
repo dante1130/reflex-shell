@@ -268,8 +268,6 @@ bool builtin_command(Command* command, Shell* shell) {
 void catch_sig(int signo) {
 	if (signo == SIGCHLD) {
 		claim_zombies();
-	} else {
-		printf("\n");
 	}
 }
 
@@ -311,7 +309,7 @@ bool file_redirection(Command* command, file_descriptors* fds) {
 	if (command->stdin_file != NULL) {
 		int fd_input = open(command->stdin_file, O_RDONLY, 0777);
 		if (fd_input == -1) {
-			printf("Failed to open/create %s for reading...\n",
+			printf("Failed to open %s for reading...\n",
 			       command->stdin_file);
 			return false;
 		}
