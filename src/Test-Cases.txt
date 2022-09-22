@@ -1,0 +1,79 @@
+./show START_OF_TESTING_DATA
+
+ls
+ps
+
+./show TEST_1_COMPLETE
+
+prompt myshell
+cd /tmp
+cd
+cd ..
+
+./show TEST_2_COMPLETE
+
+ls -l  -t   a b c
+./show a  bb  ccc  dddd 1  22  333  4444  555555
+./show  a b c d e f g h I j k l m n o p q r s t u v w x y z 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 20 abc123xyz
+
+./show TEST_3_COMPLETE
+
+ls  -l  /tmp/*.c
+ls  -l  /tmp/a*c
+ls  -l  /tmp/abc.?
+ls  -l  /tmp/abc*.?
+ls  -l  /dev/*
+
+./show TEST_4_COMPLETE
+
+sleep 1  ;  echo hello
+sleep 1  ;  ls -l
+sleep 1  ;  echo hello1  ;   sleep 1 ;  echo hello2
+
+./show TEST_5_COMPLETE
+
+echo hello  &   echo  world
+sleep 10  &  echo hello
+ps  &   ls
+echo ps-command &  ps   &   echo ls-command  &  ls -l
+sleep 10  &
+
+./show TEST_6_COMPLETE
+
+cat  <  /tmp/foo
+grep  line  <  /tmp/foo
+
+./show TEST_7_COMPLETE
+
+ls  -l  >  /tmp/junk
+cat  /tmp/foo >  /tmp/junk2
+
+./show TEST_8_COMPLETE
+
+cat /tmp/foo |  cat
+cat  /tmp/foo |  grep  line 
+cat  /tmp/foo  |  sort
+cat  /tmp/foo  |  sort  -r
+
+./show TEST_9_COMPLETE
+
+cat /tmp/foo |  sort  |  sort -r  |  grep  line 
+cat | cat | cat | cat | cat | cat | cat | cat | cat | cat | cat 
+cat | cat | cat | cat | cat | cat | cat | cat | cat | cat | cat > junk
+cat | cat | cat | cat | cat | cat | cat | cat | cat | cat | grep line
+
+./show TEST_10_COMPLETE
+
+ls -l   > junk  ;  cat < /tmp/foo ;  /bin/ls  -lt  /dev/tty*  |  grep tty  |  sort  |  head  > junk2  &  sleep 1  ;  cat  < junk2
+ls -lt | cat ;  ps | sort  &  echo ps-output ; sleep 10 & echo wait-for-10seconds ; cat /tmp/foo | cat | grep line | sort -r
+
+CTRL-C
+CTRL-\
+CTRL-Z
+
+claim of zombies
+
+slow system calls
+
+./show END_OF_TESTING_DATA
+exit

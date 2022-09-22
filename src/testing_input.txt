@@ -1,0 +1,24 @@
+./show START OF TEST CASES
+
+prompt HelloWorld!
+
+ls -lt ; date & pwd
+date ;
+pwd ;
+
+^C
+^Z
+^\
+
+make
+
+pwd
+
+cd ..
+
+./show Hello | cat | sort | cat | cat > build/output
+cat build/output
+
+
+./show END OF TEST CASES
+exit

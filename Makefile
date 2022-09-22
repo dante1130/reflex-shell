@@ -1,11 +1,11 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -O3
+CFLAGS = -Wall -Wextra -g
 
 TARGET_EXEC := reflex
 
 BUILD_DIR := ./build
 
-SRC_FILES := src/main.c src/token.c src/command.c
+SRC_FILES := src/main.c src/token.c src/command.c src/string_utils.c src/shell.c src/file_descriptor_helper.c
 
 OBJ_FILES := $(SRC_FILES:%=$(BUILD_DIR)/%.o)
 
@@ -18,3 +18,15 @@ $(BUILD_DIR)/%.c.o: %.c
 
 clean:
 	rm -r $(BUILD_DIR)
+
+run:
+	make
+	./build/reflex
+
+test:
+	make
+	./build/reflex < src/testing_input.txt
+
+test_whole:
+	make
+	./build/reflex < src/Test-Cases.txt
